@@ -1,43 +1,36 @@
 import { LitElement, html, css } from 'lit';
-import { property, customElement } from 'lit/decorators.js';
+import { property, customElement, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
-const logo = new URL('../../assets/open-wc-logo.svg', import.meta.url).href;
+import './tileset-viewer.js';
+import './menu-bar.js';
 
 @customElement('gba-tileset-builder')
 export class GbaTilesetBuilder extends LitElement {
-  @property({ type: String }) header = 'My app';
+  @property({ type: String }) header = 'Tileset Builder';
+
+  @property() data = { value: 'Hello World' };
+
+  @state() imageData: string | undefined;
 
   static styles = css`
     :host {
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: flex-start;
-      font-size: calc(10px + 2vmin);
-      color: #1a2b42;
-      max-width: 960px;
+      font-size: 14px;
+      color: #171818;
       margin: 0 auto;
-      text-align: center;
-      background-color: var(--gba-tileset-builder-background-color);
     }
 
     main {
+      display: flex;
       flex-grow: 1;
     }
 
-    .logo {
-      margin-top: 36px;
-      animation: app-logo-spin infinite 20s linear;
-    }
-
-    @keyframes app-logo-spin {
-      from {
-        transform: rotate(0deg);
-      }
-      to {
-        transform: rotate(360deg);
-      }
+    tileset-viewer {
+      flex-grow: 1;
     }
 
     .app-footer {
@@ -52,30 +45,58 @@ export class GbaTilesetBuilder extends LitElement {
 
   render() {
     return html`
+      <menu-bar></menu-bar>
       <main>
-        <div class="logo"><img alt="open-wc logo" src=${logo} /></div>
-        <h1>${this.header}</h1>
-
-        <p>Edit <code>src/GbaTilesetBuilder.ts</code> and save to reload.</p>
-        <a
-          class="app-link"
-          href="https://open-wc.org/guides/developing-components/code-examples"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Code examples
-        </a>
+        <div>Palettes</div>
+        <tileset-viewer
+          imageData="${ifDefined(this.imageData)}"
+        ></tileset-viewer>
       </main>
 
       <p class="app-footer">
-        🚽 Made with love by
+        Made by
         <a
           target="_blank"
           rel="noopener noreferrer"
-          href="https://github.com/open-wc"
-          >open-wc</a
+          href="https://github.com/Stevebel"
+          >Steven Beller</a
         >.
       </p>
     `;
+  }
+
+  firstUpdated() {
+    this.addEventListener('menu-item-clicked', (e: Event) => {
+      const event = e as CustomEvent;
+      switch (event?.detail?.action) {
+        case 'open':
+          // Open file input dialog
+          // eslint-disable-next-line no-case-declarations
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.onchange = changeEvent => {
+            if (!changeEvent.target) return;
+            const file = (changeEvent.target as HTMLInputElement).files![0];
+            const reader = new FileReader();
+            reader.onload = loadEvent => {
+              const data = loadEvent.target?.result;
+              if (data) {
+                console.log(data);
+                this.imageData = data as string;
+              }
+            };
+            reader.readAsDataURL(file);
+          };
+          input.click();
+          break;
+        case 'save':
+          console.log('save');
+          break;
+        default:
+          console.warn('Unknown action', event?.detail?.action);
+          break;
+      }
+    });
   }
 }
