@@ -1,7 +1,7 @@
 {
   "name": "gba-tileset-builder",
-  "description": "Webcomponent gba-tileset-builder following open-wc recommendations",
-  "license": "MIT",
+  "description": "A tool to help creating tilesets for GBA Pokemon games",
+  "license": "Unlicense",
   "author": "gba-tileset-builder",
   "version": "0.0.0",
   "type": "module",
