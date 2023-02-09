@@ -1,7 +1,7 @@
 {
   "name": "gba-tileset-builder",
   "description": "A tool to help creating tilesets for GBA Pokemon games",
-  "license": "Unlicense",
+  "license": "MIT",
   "author": "gba-tileset-builder",
   "version": "0.0.0",
   "type": "module",
