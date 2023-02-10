@@ -1,6 +1,11 @@
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { COLOR_ALT_BG, COLOR_PRIMARY_BG } from './common/constants.js';
+import {
+  COLOR_ALT_BG,
+  COLOR_PRIMARY_BG,
+  TILE_SIZE,
+} from './common/constants.js';
+import { TilesetTile } from './common/tileset.interface.js';
 import { imageToCanvas } from './common/utils.js';
 
 @customElement('tileset-viewer')
@@ -38,6 +43,9 @@ export class TilesetViewer extends LitElement {
   imageData: string | undefined;
 
   @property()
+  tiles: TilesetTile[] = [];
+
+  @property()
   backgroundColor = '#aaa';
 
   @query('#tileset-canvas')
@@ -53,6 +61,8 @@ export class TilesetViewer extends LitElement {
   private _selectedTile = { x: -1, y: -1 };
 
   private _imageCanvas: HTMLCanvasElement | undefined;
+
+  private tilesWide = 0;
 
   render() {
     return html`
@@ -90,9 +100,10 @@ export class TilesetViewer extends LitElement {
       this.renderTileset();
       // Get image data for the selected tile
       const imageData = this.getTileImageData(x, y);
+      const tileIndex = this.getTileIndex(x, y);
       this.dispatchEvent(
         new CustomEvent('tile-selected', {
-          detail: { x, y, imageData },
+          detail: { tileIndex, imageData, selectMultiple: e.shiftKey },
           bubbles: true,
           composed: true,
         })
@@ -100,23 +111,44 @@ export class TilesetViewer extends LitElement {
     });
   }
 
+  private getTileIndex(x: number, y: number): number {
+    return y * this.tilesWide + x;
+  }
+
+  private getTileCoords(index: number): { x: number; y: number } {
+    const scale = this.intScale;
+    const tileX = index % this.tilesWide;
+    const tileY = Math.floor(index / this.tilesWide);
+    return { x: tileX * TILE_SIZE * scale, y: tileY * TILE_SIZE * scale };
+  }
+
   private getTileAt(x: number, y: number): { x: number; y: number } {
     const scale = this.intScale;
-    const tileX = Math.floor(x / (8 * scale));
-    const tileY = Math.floor(y / (8 * scale));
+    const tileX = Math.floor(x / (TILE_SIZE * scale));
+    const tileY = Math.floor(y / (TILE_SIZE * scale));
     return { x: tileX, y: tileY };
   }
 
   private getTileImageData(x: number, y: number): ImageData {
     // Render the tile to a temporary canvas
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 8;
-    tempCanvas.height = 8;
+    tempCanvas.width = TILE_SIZE;
+    tempCanvas.height = TILE_SIZE;
     const ctx = tempCanvas.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
 
-    ctx.drawImage(this._imageCanvas!, x * 8, y * 8, 8, 8, 0, 0, 8, 8);
-    return ctx.getImageData(0, 0, 8, 8);
+    ctx.drawImage(
+      this._imageCanvas!,
+      x * TILE_SIZE,
+      y * TILE_SIZE,
+      TILE_SIZE,
+      TILE_SIZE,
+      0,
+      0,
+      TILE_SIZE,
+      TILE_SIZE
+    );
+    return ctx.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
   }
 
   protected async update(
@@ -135,6 +167,7 @@ export class TilesetViewer extends LitElement {
       return;
     }
     this._imageCanvas = await imageToCanvas(this.imageData);
+    this.tilesWide = Math.ceil(this._imageCanvas.width / TILE_SIZE);
   }
 
   get intScale() {
@@ -152,12 +185,12 @@ export class TilesetViewer extends LitElement {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, 0, 0, img.width * scale, img.height * scale);
       // Draw a grid every 8x8 of pixels in the image using the inverse of the pixel color under
-      ctx.fillStyle = '#7f7f7f';
+      ctx.fillStyle = '#aaa';
       ctx.globalCompositeOperation = 'difference';
-      for (let x = 0; x < img.width; x += 8) {
-        for (let y = 0; y < img.height; y += 8) {
-          ctx.fillRect(x * scale, y * scale, 8 * scale, 1);
-          ctx.fillRect(x * scale, y * scale, 1, 8 * scale);
+      for (let x = 0; x < img.width; x += TILE_SIZE) {
+        for (let y = 0; y < img.height; y += TILE_SIZE) {
+          ctx.fillRect(x * scale, y * scale, TILE_SIZE * scale, 1);
+          ctx.fillRect(x * scale, y * scale, 1, TILE_SIZE * scale);
         }
       }
       ctx.globalCompositeOperation = 'source-over';
@@ -166,29 +199,42 @@ export class TilesetViewer extends LitElement {
         ctx.strokeStyle = '#ff0';
         ctx.lineWidth = Math.max(1, Math.floor(scale / 2));
         ctx.strokeRect(
-          this._hoveredTile.x * 8 * scale,
-          this._hoveredTile.y * 8 * scale,
-          8 * scale,
-          8 * scale
+          this._hoveredTile.x * TILE_SIZE * scale,
+          this._hoveredTile.y * TILE_SIZE * scale,
+          TILE_SIZE * scale,
+          TILE_SIZE * scale
         );
       }
-      // Highlight the selected tile
-      if (this._selectedTile.x >= 0 && this._selectedTile.y >= 0) {
-        ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-        ctx.strokeStyle = '#fff';
-        ctx.fillRect(
-          this._selectedTile.x * 8 * scale,
-          this._selectedTile.y * 8 * scale,
-          8 * scale,
-          8 * scale
-        );
-        ctx.strokeRect(
-          this._selectedTile.x * 8 * scale,
-          this._selectedTile.y * 8 * scale,
-          8 * scale,
-          8 * scale
-        );
-      }
+      // Highlight the selected tiles
+      this.tiles
+        .filter(t => t.selected)
+        .forEach(t => {
+          const { x, y } = this.getTileCoords(t.tileIndex);
+          ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+          ctx.strokeStyle = '#fff';
+          ctx.fillRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
+          ctx.strokeRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
+        });
+      // Display the palette indexes of the tiles
+      this.tiles
+        .filter(t => t.paletteIndex != null)
+        .forEach(t => {
+          const { x, y } = this.getTileCoords(t.tileIndex);
+          ctx.fillStyle = '#fff';
+          ctx.globalCompositeOperation = 'difference';
+          ctx.font = `${6 * scale}px monospace`;
+          ctx.textAlign = 'center';
+          const text = t.paletteIndex!.toString();
+          const textMetrics = ctx.measureText(text);
+          ctx.fillText(
+            text,
+            x + (TILE_SIZE * scale) / 2,
+            y +
+              (TILE_SIZE * scale) / 2 +
+              textMetrics.actualBoundingBoxAscent / 2
+          );
+          ctx.globalCompositeOperation = 'source-over';
+        });
     }
   }
 }

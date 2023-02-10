@@ -1,7 +1,8 @@
 import { css, html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { baseCss } from '../common/base-css.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
+import { Tileset } from '../common/tileset.interface.js';
 
 @customElement('palette-panel')
 export class MenuBar extends LitElement {
@@ -15,7 +16,11 @@ export class MenuBar extends LitElement {
     }
   `;
 
+  @property()
+  tileset: Tileset | undefined;
+
   render() {
+    console.log(this.tileset);
     return html`
       <style type="text/css">
         ${baseCss}

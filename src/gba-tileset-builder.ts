@@ -9,7 +9,10 @@ import {
   COLOR_PRIMARY_BG,
   COLOR_PRIMARY_FG,
   COLOR_PRIMARY_HIGHLIGHT,
+  TILE_SIZE,
 } from './common/constants.js';
+import { RGBColor, Tileset } from './common/tileset.interface.js';
+import { imageToCanvas } from './common/utils.js';
 
 @customElement('gba-tileset-builder')
 export class GbaTilesetBuilder extends LitElement {
@@ -18,6 +21,11 @@ export class GbaTilesetBuilder extends LitElement {
   @property() data = { value: 'Hello World' };
 
   @state() imageData: string | undefined;
+
+  @state() tileset: Tileset = {
+    palettes: [],
+    tiles: [],
+  };
 
   static styles = css`
     :host {
@@ -65,8 +73,9 @@ export class GbaTilesetBuilder extends LitElement {
     return html`
       <menu-bar></menu-bar>
       <main>
-        <palette-panel></palette-panel>
+        <palette-panel .tileset="${this.tileset}"></palette-panel>
         <tileset-viewer
+          .tiles="${this.tileset.tiles}"
           imageData="${ifDefined(this.imageData)}"
         ></tileset-viewer>
       </main>
@@ -101,6 +110,7 @@ export class GbaTilesetBuilder extends LitElement {
               const data = loadEvent.target?.result;
               if (data) {
                 this.imageData = data as string;
+                this.populateTileset();
               }
             };
             reader.readAsDataURL(file);
@@ -115,5 +125,41 @@ export class GbaTilesetBuilder extends LitElement {
           break;
       }
     });
+    this.addEventListener('tile-selected', (e: Event) => {
+      const event = e as CustomEvent;
+      const { tileIndex, selectMultiple } = event.detail;
+      if (!selectMultiple) {
+        this.tileset.tiles.forEach(t => {
+          t.selected = false;
+        });
+      }
+      this.tileset.tiles[tileIndex].selected =
+        !this.tileset.tiles[tileIndex].selected;
+    });
+  }
+
+  async populateTileset() {
+    const canvas = await imageToCanvas(this.imageData!);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    this.tileset = {
+      palettes: this.tileset.palettes || [],
+      tiles: [],
+    };
+    let idx = 0;
+    for (let y = 0; y < canvas.height; y += TILE_SIZE) {
+      for (let x = 0; x < canvas.width; x += TILE_SIZE) {
+        const tile = ctx.getImageData(x, y, TILE_SIZE, TILE_SIZE);
+        const pixels: RGBColor[] = [];
+        for (let i = 0; i < tile.data.length; i += 4) {
+          pixels.push([tile.data[i], tile.data[i + 1], tile.data[i + 2]]);
+        }
+        this.tileset.tiles.push({
+          tileIndex: idx,
+          pixels,
+          selected: false,
+        });
+        idx += 1;
+      }
+    }
   }
 }
