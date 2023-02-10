@@ -4,6 +4,12 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 
 import './tileset-viewer.js';
 import './menu-bar.js';
+import './palette/palette-panel.js';
+import {
+  COLOR_PRIMARY_BG,
+  COLOR_PRIMARY_FG,
+  COLOR_PRIMARY_HIGHLIGHT,
+} from './common/constants.js';
 
 @customElement('gba-tileset-builder')
 export class GbaTilesetBuilder extends LitElement {
@@ -20,7 +26,7 @@ export class GbaTilesetBuilder extends LitElement {
       flex-direction: column;
       justify-content: flex-start;
       font-size: 14px;
-      color: #171818;
+      color: ${COLOR_PRIMARY_BG};
       margin: 0 auto;
     }
 
@@ -34,12 +40,24 @@ export class GbaTilesetBuilder extends LitElement {
     }
 
     .app-footer {
-      font-size: calc(12px + 0.5vmin);
+      background: ${COLOR_PRIMARY_BG};
+      color: ${COLOR_PRIMARY_FG};
+      font-size: 12px;
       align-items: center;
+      margin: 0;
+      padding: 10px;
+      border-top: 1px solid #000;
     }
 
     .app-footer a {
       margin-left: 5px;
+    }
+
+    a {
+      color: ${COLOR_PRIMARY_FG};
+    }
+    a:hover {
+      color: ${COLOR_PRIMARY_HIGHLIGHT};
     }
   `;
 
@@ -47,7 +65,7 @@ export class GbaTilesetBuilder extends LitElement {
     return html`
       <menu-bar></menu-bar>
       <main>
-        <div>Palettes</div>
+        <palette-panel></palette-panel>
         <tileset-viewer
           imageData="${ifDefined(this.imageData)}"
         ></tileset-viewer>

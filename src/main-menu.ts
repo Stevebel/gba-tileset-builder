@@ -1,6 +1,11 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { baseCss } from './common/base-css.js';
+import {
+  COLOR_PRIMARY_BG,
+  COLOR_PRIMARY_HIGHLIGHT,
+  COLOR_PRIMARY_HIGHLIGHT_BG,
+} from './common/constants.js';
 
 @customElement('main-menu')
 export class MenuBar extends LitElement {
@@ -16,7 +21,7 @@ export class MenuBar extends LitElement {
       position: absolute;
       top: 25px;
       left: 0;
-      background: #171818;
+      background: ${COLOR_PRIMARY_BG};
       list-style: none;
       margin: 0;
       padding: 0;
@@ -37,10 +42,10 @@ export class MenuBar extends LitElement {
 
     .menu-button:hover,
     .menu-item:hover {
-      color: #e7ffbc;
+      color: ${COLOR_PRIMARY_HIGHLIGHT};
     }
     .menu-item:hover {
-      background: #2a302a;
+      background: ${COLOR_PRIMARY_HIGHLIGHT_BG};
     }
     .menu-item-icon {
       margin-right: 10px;

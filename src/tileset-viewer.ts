@@ -1,15 +1,31 @@
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { COLOR_ALT_BG, COLOR_PRIMARY_BG } from './common/constants.js';
 
 @customElement('tileset-viewer')
 export class TilesetViewer extends LitElement {
   static styles = css`
     :host {
       display: flex;
-      min-width: 300px;
-      background: #aaa;
+      background: ${COLOR_PRIMARY_BG};
+    }
+    .tileset-viewer {
+      display: flex;
+      flex-grow: 1;
       flex-direction: column;
       align-items: center;
+      padding: 20px;
+
+      background-image: linear-gradient(
+          45deg,
+          ${COLOR_ALT_BG} 25%,
+          transparent 25%
+        ),
+        linear-gradient(-45deg, ${COLOR_ALT_BG} 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, ${COLOR_ALT_BG} 75%),
+        linear-gradient(-45deg, transparent 75%, ${COLOR_ALT_BG} 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
     #tileset-canvas {
       object-fit: contain;
@@ -27,7 +43,7 @@ export class TilesetViewer extends LitElement {
   canvas!: HTMLCanvasElement;
 
   @state()
-  private _scale = 0.5;
+  private _scale = 4;
 
   @state()
   private _hoveredTile = { x: -1, y: -1 };
@@ -37,8 +53,9 @@ export class TilesetViewer extends LitElement {
 
   render() {
     return html`
-      <div>Tileset Viewer</div>
-      <canvas id="tileset-canvas"></canvas>
+      <div class="tileset-viewer">
+        <canvas id="tileset-canvas"></canvas>
+      </div>
     `;
   }
 
@@ -51,7 +68,6 @@ export class TilesetViewer extends LitElement {
       } else if (e.deltaY < 0 && this._scale < 8) {
         this._scale += 0.25;
       }
-      console.log(this._scale);
       this.renderTileset();
     });
     // Hover over a tile
