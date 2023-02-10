@@ -100,7 +100,6 @@ export class GbaTilesetBuilder extends LitElement {
             reader.onload = loadEvent => {
               const data = loadEvent.target?.result;
               if (data) {
-                console.log(data);
                 this.imageData = data as string;
               }
             };
