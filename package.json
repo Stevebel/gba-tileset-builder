@@ -16,6 +16,7 @@
     "start": "tsc && concurrently -k -r \"tsc --watch --preserveWatchOutput\" \"wds\""
   },
   "dependencies": {
+    "@lit-app/state": "^0.8.0",
     "lit": "^2.0.2"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { property, customElement, state } from 'lit/decorators.js';
+import { property, customElement, state, queryAll } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
 import './tileset-viewer.js';
@@ -26,6 +26,8 @@ export class GbaTilesetBuilder extends LitElement {
     palettes: [],
     tiles: [],
   };
+
+  @queryAll('main > *') mainChildren!: HTMLElement[];
 
   static styles = css`
     :host {
@@ -73,7 +75,7 @@ export class GbaTilesetBuilder extends LitElement {
     return html`
       <menu-bar></menu-bar>
       <main>
-        <palette-panel .tileset="${this.tileset}"></palette-panel>
+        <palette-panel .tiles="${this.tileset.tiles}"></palette-panel>
         <tileset-viewer
           .tiles="${this.tileset.tiles}"
           imageData="${ifDefined(this.imageData)}"
@@ -135,6 +137,16 @@ export class GbaTilesetBuilder extends LitElement {
       }
       this.tileset.tiles[tileIndex].selected =
         !this.tileset.tiles[tileIndex].selected;
+
+      this.dispatchTilesetUpdated();
+    });
+  }
+
+  dispatchTilesetUpdated() {
+    const event = new CustomEvent('tileset-updated', { detail: this.tileset });
+    this.dispatchEvent(event);
+    this.mainChildren.forEach(child => {
+      child.dispatchEvent(event);
     });
   }
 
