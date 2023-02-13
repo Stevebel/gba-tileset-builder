@@ -1,3 +1,4 @@
+import { StateController } from '@lit-app/state';
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import {
@@ -5,7 +6,7 @@ import {
   COLOR_PRIMARY_BG,
   TILE_SIZE,
 } from './common/constants.js';
-import { TilesetTile } from './common/tileset.interface.js';
+import { tilesetState } from './common/tileset-state.js';
 import { imageToCanvas } from './common/utils.js';
 
 @customElement('tileset-viewer')
@@ -14,6 +15,8 @@ export class TilesetViewer extends LitElement {
     :host {
       display: flex;
       background: ${COLOR_PRIMARY_BG};
+      overflow: auto;
+      max-height: calc(100vh - 80px);
     }
     .tileset-viewer {
       display: flex;
@@ -21,7 +24,10 @@ export class TilesetViewer extends LitElement {
       flex-direction: column;
       align-items: center;
       padding: 20px;
-
+    }
+    #tileset-canvas {
+      object-fit: contain;
+      image-rendering: pixelated;
       background-image: linear-gradient(
           45deg,
           ${COLOR_ALT_BG} 25%,
@@ -33,17 +39,12 @@ export class TilesetViewer extends LitElement {
       background-size: 20px 20px;
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
-    #tileset-canvas {
-      object-fit: contain;
-      image-rendering: pixelated;
-    }
   `;
+
+  ctrl = new StateController(this, tilesetState);
 
   @property()
   imageData: string | undefined;
-
-  @property()
-  tiles: TilesetTile[] = [];
 
   @property()
   backgroundColor = '#aaa';
@@ -58,7 +59,10 @@ export class TilesetViewer extends LitElement {
   private _hoveredTile = { x: -1, y: -1 };
 
   @state()
-  private _selectedTile = { x: -1, y: -1 };
+  private _lastSelectedTile = { x: -1, y: -1 };
+
+  @state()
+  private _tool = 'hover';
 
   private _imageCanvas: HTMLCanvasElement | undefined;
 
@@ -88,27 +92,52 @@ export class TilesetViewer extends LitElement {
     // Hover over a tile
     this.canvas.addEventListener('mousemove', e => {
       const { x, y } = this.getTileAt(e.offsetX, e.offsetY);
-      if (x !== this._hoveredTile.x || y !== this._hoveredTile.y) {
-        this._hoveredTile = { x, y };
-        this.renderTileset();
-      }
+      this.applyTool(x, y, e.shiftKey ? 'shift' : '');
     });
     // Select a tile
-    this.canvas.addEventListener('click', e => {
+    this.canvas.addEventListener('mousedown', e => {
       const { x, y } = this.getTileAt(e.offsetX, e.offsetY);
-      this._selectedTile = { x, y };
-      this.renderTileset();
-      // Get image data for the selected tile
-      const imageData = this.getTileImageData(x, y);
       const tileIndex = this.getTileIndex(x, y);
-      this.dispatchEvent(
-        new CustomEvent('tile-selected', {
-          detail: { tileIndex, imageData, selectMultiple: e.shiftKey },
-          bubbles: true,
-          composed: true,
-        })
-      );
+      if (tilesetState.tiles[tileIndex].selected) {
+        this._tool = 'deselect';
+      } else {
+        this._tool = 'select';
+      }
     });
+    this.canvas.addEventListener('mouseup', e => {
+      const { x, y } = this.getTileAt(e.offsetX, e.offsetY);
+      this.applyTool(x, y, e.shiftKey ? 'shift' : '');
+      if (this._tool === 'select' || this._tool === 'deselect') {
+        this._tool = 'hover';
+      }
+      this._lastSelectedTile = { x: -1, y: -1 };
+    });
+  }
+
+  private applyTool(x: number, y: number, modifier: string) {
+    const tileIndex = this.getTileIndex(x, y);
+    switch (this._tool) {
+      case 'hover':
+        if (x !== this._hoveredTile.x || y !== this._hoveredTile.y) {
+          this._hoveredTile = { x, y };
+          this.renderTileset();
+        }
+        break;
+      case 'select':
+      case 'deselect':
+        if (x !== this._lastSelectedTile.x || y !== this._lastSelectedTile.y) {
+          this._lastSelectedTile = { x, y };
+          this._hoveredTile = { x: -1, y: -1 };
+          const selectMultiple = modifier === 'shift';
+          const deselect = this._tool === 'deselect';
+          console.log('select', tileIndex, selectMultiple, deselect);
+          tilesetState.selectTile(tileIndex, selectMultiple, deselect);
+        }
+        break;
+      default:
+        console.error('Unknown tool', this._tool);
+        break;
+    }
   }
 
   private getTileIndex(x: number, y: number): number {
@@ -159,6 +188,8 @@ export class TilesetViewer extends LitElement {
     if (changedProperties.has('imageData')) {
       await this.updateImage();
       this.renderTileset();
+    } else {
+      this.renderTileset();
     }
   }
 
@@ -206,7 +237,7 @@ export class TilesetViewer extends LitElement {
         );
       }
       // Highlight the selected tiles
-      this.tiles
+      tilesetState.tiles
         .filter(t => t.selected)
         .forEach(t => {
           const { x, y } = this.getTileCoords(t.tileIndex);
@@ -216,7 +247,7 @@ export class TilesetViewer extends LitElement {
           ctx.strokeRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
         });
       // Display the palette indexes of the tiles
-      this.tiles
+      tilesetState.tiles
         .filter(t => t.paletteIndex != null)
         .forEach(t => {
           const { x, y } = this.getTileCoords(t.tileIndex);

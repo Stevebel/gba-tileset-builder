@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@lit-app/state": "^0.8.0",
+    "colorjs.io": "^0.4.3",
     "lit": "^2.0.2"
   },
   "devDependencies": {
@@ -74,7 +75,9 @@
         }
       ],
       "lit-a11y/click-events-have-key-events": "off",
-      "no-param-reassign": "off"
+      "no-param-reassign": "off",
+      "class-methods-use-this": "off",
+      "no-plusplus": "off"
     }
   },
   "prettier": {

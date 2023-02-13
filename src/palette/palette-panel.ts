@@ -1,61 +1,170 @@
+import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { baseCss } from '../common/base-css.js';
+import { customElement } from 'lit/decorators.js';
+import { baseCss, buttonStyles } from '../common/base-css.js';
+import { colorsAreEqual, EMPTY_COLOR } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
-import { TilesetTile, RGBColor } from '../common/tileset.interface.js';
+import { tilesetState } from '../common/tileset-state.js';
+import {
+  ColorData,
+  RGBColor,
+  TilesetPalette,
+  TilesetTile,
+} from '../common/tileset.interface.js';
+import './palette-editor.js';
 
 @customElement('palette-panel')
 export class MenuBar extends LitElement {
-  static styles = css`
-    :host {
-      background: ${COLOR_PRIMARY_BG};
-      color: ${COLOR_PRIMARY_FG};
-      padding: 10px;
-      box-shadow: 3px 0 10px rgba(0, 0, 0, 0.5);
-      z-index: 10;
-      min-width: 300px;
-    }
-  `;
+  static styles = [
+    buttonStyles,
+    css`
+      :host {
+        background: ${COLOR_PRIMARY_BG};
+        color: ${COLOR_PRIMARY_FG};
+        padding: 10px;
+        box-shadow: 3px 0 10px rgba(0, 0, 0, 0.5);
+        z-index: 10;
+        min-width: 300px;
+        width: 300px;
+        overflow: auto;
+        max-height: calc(100vh - 100px);
+      }
+    `,
+  ];
 
-  @property()
-  tiles: TilesetTile[] = [];
+  ctrl = new StateController(this, tilesetState);
 
   tilesWithNoPaletteSelected() {
-    return this.tiles?.some(tile => tile.selected && tile.paletteIndex == null);
-  }
-
-  addPalette() {
-    const selectedTiles = this.tiles?.filter(tile => tile.selected);
-    console.log('addPalette', selectedTiles);
-    const colorSet = new Set<string>();
-    const colors: RGBColor[] = [];
-
-    selectedTiles?.forEach(tile => {
-      tile.pixels?.forEach(pixel => {
-        const color = pixel.join(',');
-        if (!colorSet.has(color)) {
-          colorSet.add(color);
-          colors.push(pixel);
-        }
-      });
-    });
-
-    this.dispatchEvent(
-      new CustomEvent('add-palette', {
-        detail: {
-          colors,
-          tiles: selectedTiles,
-        },
-        bubbles: true,
-      })
+    return (
+      tilesetState.tiles?.some(
+        tile => tile.selected && tile.paletteIndex == null
+      ) &&
+      !tilesetState.tiles?.some(
+        tile => tile.selected && tile.paletteIndex != null
+      )
     );
   }
 
-  protected firstUpdated() {
-    this.addEventListener('tileset-updated', () => {
-      console.log('tileset-updated');
-      this.requestUpdate();
+  paletteHasTilesToAdd(palette: TilesetPalette) {
+    return tilesetState.tiles?.some(
+      tile => tile.selected && tile.paletteIndex !== palette.index
+    );
+  }
+
+  paletteHasTilesToRemove(palette: TilesetPalette) {
+    return tilesetState.tiles?.some(
+      tile => tile.selected && tile.paletteIndex === palette.index
+    );
+  }
+
+  updatePaletteToMatchTiles(
+    palette: TilesetPalette,
+    tiles: TilesetTile[]
+  ): TilesetPalette {
+    const colorCounts = new Map<string, number>();
+    const colors: RGBColor[] = [];
+
+    tiles?.forEach(tile => {
+      tile.pixels?.forEach(pixel => {
+        const color = pixel.join(',');
+        const count = colorCounts.get(color) || 0;
+        if (count === 0) {
+          colors.push(pixel);
+        }
+        colorCounts.set(color, count + 1);
+      });
     });
+    const tileColorData: ColorData[] = colors
+      .map(color => {
+        const colorStr = color.join(',');
+        const count = colorCounts.get(colorStr) || 0;
+        return {
+          color,
+          usageCount: count,
+        };
+      })
+      .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+    const colorData: (ColorData | null)[] = [];
+    palette.colors?.forEach(color => {
+      const tileColor = tileColorData.find(c =>
+        colorsAreEqual(c.color, color.color)
+      );
+      if (tileColor) {
+        colorData.push(tileColor);
+        tileColorData.splice(tileColorData.indexOf(tileColor), 1);
+      } else {
+        colorData.push(null);
+      }
+    });
+    colorData.forEach((color, i) => {
+      if (color == null) {
+        colorData[i] = tileColorData.shift() || EMPTY_COLOR;
+      }
+    });
+    while (colorData.length < 16) {
+      colorData.push(tileColorData.shift() || EMPTY_COLOR);
+    }
+
+    return {
+      ...palette,
+      colors: colorData as ColorData[],
+      unassignedColors: tileColorData,
+    };
+  }
+
+  addPalette() {
+    const selectedTiles = tilesetState.tiles?.filter(tile => tile.selected);
+
+    const palette = tilesetState.addPalette([]);
+    tilesetState.palettes![palette.index] = this.updatePaletteToMatchTiles(
+      palette,
+      selectedTiles
+    );
+    tilesetState.changeSelectedTilesPalette(palette.index);
+  }
+
+  addTilesToPalette(e: CustomEvent) {
+    const { paletteIndex } = e.detail;
+    const affectedPaletteIndexes = new Set(
+      tilesetState.tiles
+        ?.filter(tile => tile.selected && tile.paletteIndex !== paletteIndex)
+        .map(tile => tile.paletteIndex)
+        .filter(index => index != null) as number[]
+    );
+    affectedPaletteIndexes.add(paletteIndex);
+    tilesetState.changeSelectedTilesPalette(paletteIndex);
+    affectedPaletteIndexes.forEach(index => {
+      const paletteTiles = tilesetState.tiles?.filter(
+        tile => tile.paletteIndex === index
+      );
+      tilesetState.palettes![index] = this.updatePaletteToMatchTiles(
+        tilesetState.palettes![index],
+        paletteTiles
+      );
+    });
+  }
+
+  removeTilesFromPalette(e: CustomEvent) {
+    const { paletteIndex } = e.detail;
+    tilesetState.tiles = tilesetState.tiles?.map(tile =>
+      tile.selected && tile.paletteIndex === paletteIndex
+        ? { ...tile, paletteIndex: undefined }
+        : tile
+    );
+    const paletteTiles = tilesetState.tiles?.filter(
+      tile => tile.paletteIndex === paletteIndex
+    );
+    tilesetState.palettes![paletteIndex] = this.updatePaletteToMatchTiles(
+      tilesetState.palettes![paletteIndex],
+      paletteTiles
+    );
+  }
+
+  protected firstUpdated() {}
+
+  deletePalette(e: CustomEvent) {
+    const { paletteIndex } = e.detail;
+    tilesetState.deletePalette(paletteIndex);
   }
 
   render() {
@@ -69,6 +178,21 @@ export class MenuBar extends LitElement {
           Add
           Palette${this.tilesWithNoPaletteSelected() ? ' From Selected' : ''}
         </button>
+      </div>
+      <div class="palettes">
+        ${tilesetState.palettes?.map(
+          palette => html`
+            <palette-editor
+              .palette="${palette}"
+              ?hasTilesToAdd="${this.paletteHasTilesToAdd(palette)}"
+              ?hasTilesToRemove="${this.paletteHasTilesToRemove(palette)}"
+              @add-tiles="${this.addTilesToPalette}"
+              @remove-tiles="${this.removeTilesFromPalette}"
+              @delete-palette="${this.deletePalette}"
+            >
+            </palette-editor>
+          `
+        )}
       </div>
     `;
   }
