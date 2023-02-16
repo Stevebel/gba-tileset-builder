@@ -28,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Yarn Install
-        uses: CultureHQ/actions-yarn@v1
+        uses: CultureHQ/actions-yarn@v1.0.1
         with:
           args: install
       - name: Yarn Build
