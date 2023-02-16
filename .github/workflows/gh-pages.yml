@@ -32,7 +32,7 @@ jobs:
         with:
           args: install
       - name: Yarn Build
-        uses: CultureHQ/actions-yarn@v1
+        uses: CultureHQ/actions-yarn@v1.0.1
         with:
           args: build
       - name: Upload artifact
