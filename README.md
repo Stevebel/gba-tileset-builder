@@ -1,6 +1,8 @@
 # GBA Tileset Builder
 A tool to help creating tilesets for GBA Pokemon games
 
+See it in action here: http://stevenbeller.com/gba-tileset-builder/
+
 ## Scripts
 
 - `start` runs app for development, reloading on file changes
