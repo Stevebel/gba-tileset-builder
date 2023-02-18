@@ -1,9 +1,16 @@
+import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import { sortIndexesByColorDistance } from '../common/color-utils.js';
-import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
-import { TilesetPalette } from '../common/tileset.interface.js';
+import {
+  COLOR_PRIMARY_BG,
+  COLOR_PRIMARY_FG,
+  COLOR_PRIMARY_HIGHLIGHT,
+  COLOR_PRIMARY_HIGHLIGHT_BG,
+} from '../common/constants.js';
+import { tilesetState } from '../common/tileset-state.js';
+import { ColorData, TilesetPalette } from '../common/tileset.interface.js';
 
 @customElement('palette-editor')
 export class PaletteEditor extends LitElement {
@@ -28,6 +35,11 @@ export class PaletteEditor extends LitElement {
         margin: -5px;
         margin-bottom: 6px;
         padding: 5px;
+      }
+
+      .selected .title {
+        background: ${COLOR_PRIMARY_HIGHLIGHT};
+        color: ${COLOR_PRIMARY_HIGHLIGHT_BG};
       }
 
       .colors {
@@ -74,6 +86,10 @@ export class PaletteEditor extends LitElement {
         left: auto;
         height: 100px;
       }
+      .color.selected {
+        border: 3px solid ${COLOR_PRIMARY_HIGHLIGHT};
+        margin: 0px;
+      }
 
       .unassigned-colors {
         display: grid;
@@ -92,6 +108,8 @@ export class PaletteEditor extends LitElement {
     `,
   ];
 
+  ctrl = new StateController(this, tilesetState);
+
   @property()
   palette: Partial<TilesetPalette> = {};
 
@@ -101,46 +119,53 @@ export class PaletteEditor extends LitElement {
   @property({ type: Boolean })
   hasTilesToRemove = false;
 
-  updated() {
-    // Check for hover over .color elements
-    const colorSwatches = this.shadowRoot?.querySelectorAll('.color');
-    const colors = this.palette.colors!.concat(this.palette.unassignedColors!);
-    colorSwatches?.forEach((colorSwatch, i) => {
-      colorSwatch.addEventListener('mouseover', () => {
-        if (colorSwatch.classList.contains('hover')) {
-          return;
-        }
-        colorSwatches.forEach(c =>
-          c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
-        );
-        const colorData = colors[i];
-        if (colorData) {
-          const nearest = sortIndexesByColorDistance(
-            colorData.color,
-            colors.map(c => c.color)
-          );
-          if (nearest.length > 1) {
-            const nearestSwatch = colorSwatches[nearest[1]];
-            nearestSwatch?.classList.add('nearest');
-          }
-          if (nearest.length > 2) {
-            const secondNearestSwatch = colorSwatches[nearest[2]];
-            secondNearestSwatch?.classList.add('nearest-2');
-          }
-          if (nearest.length > 3) {
-            const thirdNearestSwatch = colorSwatches[nearest[3]];
-            thirdNearestSwatch?.classList.add('nearest-3');
-          }
-        }
-        colorSwatch.classList.add('hover');
-      });
+  mouseOverColor(event: MouseEvent) {
+    const colorSwatch = event.target as HTMLElement;
+    const i = parseInt(colorSwatch.dataset.index!, 10);
 
-      colorSwatch.addEventListener('mouseout', () => {
-        colorSwatches.forEach(c =>
-          c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
-        );
-      });
-    });
+    const colorSwatches = this.shadowRoot!.querySelectorAll('.color');
+    const colors = this.palette.colors!.concat(this.palette.unassignedColors!);
+
+    if (colorSwatch.classList.contains('hover')) {
+      return;
+    }
+    colorSwatches.forEach(c =>
+      c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
+    );
+    const colorData = colors[i];
+    if (colorData) {
+      const nearest = sortIndexesByColorDistance(
+        colorData.color,
+        colors.map(c => c.color)
+      );
+      if (nearest.length > 1) {
+        const nearestSwatch = colorSwatches[nearest[1]];
+        nearestSwatch?.classList.add('nearest');
+      }
+      if (nearest.length > 2) {
+        const secondNearestSwatch = colorSwatches[nearest[2]];
+        secondNearestSwatch?.classList.add('nearest-2');
+      }
+      // if (nearest.length > 3) {
+      //   const thirdNearestSwatch = colorSwatches[nearest[3]];
+      //   thirdNearestSwatch?.classList.add('nearest-3');
+      // }
+    }
+    colorSwatch.classList.add('hover');
+  }
+
+  mouseOutColor() {
+    const colorSwatches = this.shadowRoot!.querySelectorAll('.color');
+    colorSwatches.forEach(c =>
+      c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
+    );
+  }
+
+  clickColor(event: MouseEvent) {
+    const colorSwatch = event.target as HTMLElement;
+    const i = parseInt(colorSwatch.dataset.index!, 10);
+    const colors = this.palette.colors!.concat(this.palette.unassignedColors!);
+    tilesetState.selectColor(this.palette.index!, colors[i].color);
   }
 
   addSelectedTiles() {
@@ -177,6 +202,17 @@ export class PaletteEditor extends LitElement {
     return this.palette.colors!;
   }
 
+  isColorSelected(color: ColorData) {
+    return tilesetState.selectedColors?.some(
+      c =>
+        c[0] === color.color[0] &&
+        c[1] === color.color[1] &&
+        c[2] === color.color[2]
+    ) || false
+      ? 'selected'
+      : '';
+  }
+
   render() {
     return html`
       <style type="text/css">
@@ -184,14 +220,26 @@ export class PaletteEditor extends LitElement {
           content: '';
         }
       </style>
-      <div class="editor">
+      <div
+        class="editor ${this.palette.index === tilesetState.selectedPaletteIndex
+          ? 'selected'
+          : ''}"
+      >
         <div class="title">Palette #${this.palette.index}</div>
         <div class="colors">
           ${this.getPaletteSwatches().map(
             (color, i) =>
               html`<div
-                class="color ${i === 0 ? 'transparent' : ''}"
+                class="color ${i === 0
+                  ? 'transparent'
+                  : ''} ${this.isColorSelected(color)}"
                 style="background-color: rgb(${color.color.join(',')})"
+                data-index="${i}"
+                @mouseover=${this.mouseOverColor}
+                @focus=${this.mouseOverColor}
+                @mouseout=${this.mouseOutColor}
+                @blur=${this.mouseOutColor}
+                @click=${this.clickColor}
               ></div>`
           )}
         </div>
@@ -203,10 +251,16 @@ export class PaletteEditor extends LitElement {
           <div class="label">Missing from palette:</div>
           <div class="unassigned-colors">
             ${this.palette.unassignedColors?.map(
-              color =>
+              (color, i) =>
                 html`<div
-                  class="color"
+                  class="color ${this.isColorSelected(color)}"
                   style="background-color: rgb(${color.color.join(',')})"
+                  data-index="${i + 16}"
+                  @mouseover=${this.mouseOverColor}
+                  @focus=${this.mouseOverColor}
+                  @mouseout=${this.mouseOutColor}
+                  @blur=${this.mouseOutColor}
+                  @click=${this.clickColor}
                 ></div>`
             )}
           </div>

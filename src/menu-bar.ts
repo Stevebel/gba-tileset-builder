@@ -4,6 +4,7 @@ import { baseCss } from './common/base-css.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from './common/constants.js';
 
 import './main-menu.js';
+import './tool-menu.js';
 
 @customElement('menu-bar')
 export class MenuBar extends LitElement {
@@ -36,7 +37,8 @@ export class MenuBar extends LitElement {
       </style>
       <main-menu></main-menu>
       <div class="title">Tileset Builder</div>
-      <div class="version">v0.0.1</div>
+      <div class="version">v0.1.0</div>
+      <tool-menu></tool-menu>
     `;
   }
 }

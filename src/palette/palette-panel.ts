@@ -105,11 +105,11 @@ export class MenuBar extends LitElement {
       colorData.push(tileColorData.shift() || EMPTY_COLOR);
     }
 
-    return {
-      ...palette,
+    return tilesetState.updatePalette({
+      index: palette.index,
       colors: colorData as ColorData[],
       unassignedColors: tileColorData,
-    };
+    });
   }
 
   addPalette() {
@@ -179,6 +179,14 @@ export class MenuBar extends LitElement {
           Palette${this.tilesWithNoPaletteSelected() ? ' From Selected' : ''}
         </button>
       </div>
+      ${tilesetState.selectedPaletteIndex}
+      ${tilesetState.selectedColors?.map(
+        color => html`
+          <div class="color-preview" style="color: rgb(${color.join(',')})">
+            ${color.join(',')}
+          </div>
+        `
+      )}
       <div class="palettes">
         ${tilesetState.palettes?.map(
           palette => html`

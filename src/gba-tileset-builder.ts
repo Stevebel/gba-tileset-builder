@@ -1,28 +1,22 @@
-import { LitElement, html, css } from 'lit';
-import { property, customElement, state, queryAll } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
+import { css, html, LitElement } from 'lit';
+import { customElement, property, queryAll } from 'lit/decorators.js';
 
-import './tileset-viewer.js';
-import './menu-bar.js';
-import './palette/palette-panel.js';
 import { StateController } from '@lit-app/state';
 import {
   COLOR_PRIMARY_BG,
   COLOR_PRIMARY_FG,
   COLOR_PRIMARY_HIGHLIGHT,
-  TILE_SIZE,
 } from './common/constants.js';
-import { RGBColor } from './common/tileset.interface.js';
-import { imageToCanvas } from './common/utils.js';
 import { tilesetState } from './common/tileset-state.js';
+import './menu-bar.js';
+import './palette/palette-panel.js';
+import './tileset-viewer.js';
 
 @customElement('gba-tileset-builder')
 export class GbaTilesetBuilder extends LitElement {
   @property({ type: String }) header = 'Tileset Builder';
 
   @property() data = { value: 'Hello World' };
-
-  @state() imageData: string | undefined;
 
   ctrl = new StateController(this, tilesetState);
 
@@ -75,10 +69,7 @@ export class GbaTilesetBuilder extends LitElement {
       <menu-bar></menu-bar>
       <main>
         <palette-panel></palette-panel>
-        <tileset-viewer
-          .tiles="${tilesetState.tiles}"
-          imageData="${ifDefined(this.imageData)}"
-        ></tileset-viewer>
+        <tileset-viewer .tiles="${tilesetState.tiles}"></tileset-viewer>
       </main>
 
       <p class="app-footer">
@@ -110,8 +101,7 @@ export class GbaTilesetBuilder extends LitElement {
             reader.onload = loadEvent => {
               const data = loadEvent.target?.result;
               if (data) {
-                this.imageData = data as string;
-                this.populateTileset();
+                tilesetState.setImageDataURL(data as string);
               }
             };
             reader.readAsDataURL(file);
@@ -126,27 +116,5 @@ export class GbaTilesetBuilder extends LitElement {
           break;
       }
     });
-  }
-
-  async populateTileset() {
-    const canvas = await imageToCanvas(this.imageData!);
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    tilesetState.tiles = [];
-    let idx = 0;
-    for (let y = 0; y < canvas.height; y += TILE_SIZE) {
-      for (let x = 0; x < canvas.width; x += TILE_SIZE) {
-        const tile = ctx.getImageData(x, y, TILE_SIZE, TILE_SIZE);
-        const pixels: RGBColor[] = [];
-        for (let i = 0; i < tile.data.length; i += 4) {
-          pixels.push([tile.data[i], tile.data[i + 1], tile.data[i + 2]]);
-        }
-        tilesetState.tiles.push({
-          tileIndex: idx,
-          pixels,
-          selected: false,
-        });
-        idx += 1;
-      }
-    }
   }
 }

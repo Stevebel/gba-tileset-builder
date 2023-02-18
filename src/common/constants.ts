@@ -8,3 +8,10 @@ export const COLOR_ALT_BG = css`#74706a`;
 export const COLOR_ALT_FG = css`#252422`;
 
 export const TILE_SIZE = 8;
+
+export type ToolType =
+  | 'select'
+  | 'deselect'
+  | 'select-box'
+  | 'highlight-color'
+  | 'merge-colors';
