@@ -86,8 +86,8 @@ export class PaletteEditor extends LitElement {
           linear-gradient(-45deg, ${COLOR_ALT_BG} 25%, transparent 25%),
           linear-gradient(45deg, transparent 75%, ${COLOR_ALT_BG} 75%),
           linear-gradient(-45deg, transparent 75%, ${COLOR_ALT_BG} 75%);
-        background-size: 20px 20px;
-        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        background-size: 10px 10px;
+        background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
       }
       .transparent .color {
         width: 0px !important;
@@ -214,14 +214,20 @@ export class PaletteEditor extends LitElement {
   }
 
   isColorSelected(color: ColorData) {
-    return tilesetState.selectedColors?.some(
-      c =>
-        c[0] === color.color[0] &&
-        c[1] === color.color[1] &&
-        c[2] === color.color[2]
-    ) || false
+    return (color.usageCount &&
+      tilesetState.selectedColors?.some(
+        c =>
+          c[0] === color.color[0] &&
+          c[1] === color.color[1] &&
+          c[2] === color.color[2]
+      )) ||
+      false
       ? 'selected'
       : '';
+  }
+
+  isTransparent(color: ColorData) {
+    return !color.usageCount || color === this.palette.colors![0];
   }
 
   render() {
@@ -239,10 +245,11 @@ export class PaletteEditor extends LitElement {
           ${this.getPaletteSwatches().map(
             (color, i) =>
               html`<div
-                class="color-outer ${i === 0
+                class="color-outer ${this.isTransparent(color)
                   ? 'transparent'
                   : ''} ${this.isColorSelected(color)}"
                 data-index="${i}"
+                title="Used in ${color.usageCount} tiles"
                 @mouseover=${this.mouseOverColor}
                 @focus=${this.mouseOverColor}
                 @mouseout=${this.mouseOutColor}
@@ -251,8 +258,10 @@ export class PaletteEditor extends LitElement {
               >
                 <div
                   class="color"
-                  style="${i === 0
-                    ? `border-left-color: rgb(${color.color.join(',')})`
+                  style="${this.isTransparent(color)
+                    ? (i === 0 &&
+                        `border-left-color: rgb(${color.color.join(',')})`) ||
+                      ''
                     : `background-color: rgb(${color.color.join(',')})`}"
                 ></div>
               </div>`
@@ -268,7 +277,9 @@ export class PaletteEditor extends LitElement {
             ${this.palette.unassignedColors?.map(
               (color, i) =>
                 html`<div
-                  class="color-outer ${this.isColorSelected(color)}"
+                  class="color-outer ${this.isTransparent(color)
+                    ? 'transparent'
+                    : ''} ${this.isColorSelected(color)}"
                   data-index="${i + 16}"
                   @mouseover=${this.mouseOverColor}
                   @focus=${this.mouseOverColor}
@@ -278,7 +289,9 @@ export class PaletteEditor extends LitElement {
                 >
                   <div
                     class="color ${this.isColorSelected(color)}"
-                    style="background-color: rgb(${color.color.join(',')})"
+                    style="${this.isTransparent(color)
+                      ? ''
+                      : `background-color: rgb(${color.color.join(',')})`}"
                   ></div>
                 </div>`
             )}
