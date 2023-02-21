@@ -20,8 +20,6 @@ export class ToolMenu extends LitElement {
     }
     .tools {
       display: flex;
-      margin-left: 20px;
-      margin-bottom: -10px;
       height: 34px;
       justify-content: center;
     }
@@ -129,7 +127,7 @@ export class ToolMenu extends LitElement {
           </svg>
         </div>
         <!-- Merge tool -->
-        <div class="tool-button" data-tool-type="merge" title="Merge">
+        <div class="tool-button" data-tool-type="merge-colors" title="Merge">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="24"

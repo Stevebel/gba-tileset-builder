@@ -1,4 +1,5 @@
 import { css } from 'lit';
+import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from './constants.js';
 
 export const baseCss = `
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/fontawesome.min.css');
@@ -69,5 +70,11 @@ export const buttonStyles = css`
   .btn.btn-danger:not([disabled]):active {
     background-color: #7c0000;
     box-shadow: 0px 2px 0 #7c0000;
+  }
+
+  input {
+    background-color: ${COLOR_PRIMARY_BG};
+    color: ${COLOR_PRIMARY_FG};
+    font-size: 16px;
   }
 `;

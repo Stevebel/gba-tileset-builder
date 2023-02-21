@@ -179,14 +179,6 @@ export class MenuBar extends LitElement {
           Palette${this.tilesWithNoPaletteSelected() ? ' From Selected' : ''}
         </button>
       </div>
-      ${tilesetState.selectedPaletteIndex}
-      ${tilesetState.selectedColors?.map(
-        color => html`
-          <div class="color-preview" style="color: rgb(${color.join(',')})">
-            ${color.join(',')}
-          </div>
-        `
-      )}
       <div class="palettes">
         ${tilesetState.palettes?.map(
           palette => html`

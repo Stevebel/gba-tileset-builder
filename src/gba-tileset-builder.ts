@@ -11,6 +11,7 @@ import { tilesetState } from './common/tileset-state.js';
 import './menu-bar.js';
 import './palette/palette-panel.js';
 import './tileset-viewer.js';
+import './palette/merge-panel.js';
 
 @customElement('gba-tileset-builder')
 export class GbaTilesetBuilder extends LitElement {
@@ -69,6 +70,7 @@ export class GbaTilesetBuilder extends LitElement {
       <menu-bar></menu-bar>
       <main>
         <palette-panel></palette-panel>
+        <merge-panel></merge-panel>
         <tileset-viewer .tiles="${tilesetState.tiles}"></tileset-viewer>
       </main>
 

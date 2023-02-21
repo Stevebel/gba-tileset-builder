@@ -213,16 +213,18 @@ export class TilesetViewer extends LitElement {
       const ctx = this.canvas.getContext('2d')!;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, 0, 0, img.width * scale, img.height * scale);
-      // Draw a grid every 8x8 of pixels in the image using the inverse of the pixel color under
-      ctx.fillStyle = '#aaa';
-      ctx.globalCompositeOperation = 'difference';
-      for (let x = 0; x < img.width; x += TILE_SIZE) {
-        for (let y = 0; y < img.height; y += TILE_SIZE) {
-          ctx.fillRect(x * scale, y * scale, TILE_SIZE * scale, 1);
-          ctx.fillRect(x * scale, y * scale, 1, TILE_SIZE * scale);
+      if (tilesetState.viewOptions.showGrid) {
+        // Draw a grid every 8x8 of pixels in the image using the inverse of the pixel color under
+        ctx.fillStyle = '#aaa';
+        ctx.globalCompositeOperation = 'difference';
+        for (let x = 0; x < img.width; x += TILE_SIZE) {
+          for (let y = 0; y < img.height; y += TILE_SIZE) {
+            ctx.fillRect(x * scale, y * scale, TILE_SIZE * scale, 1);
+            ctx.fillRect(x * scale, y * scale, 1, TILE_SIZE * scale);
+          }
         }
+        ctx.globalCompositeOperation = 'source-over';
       }
-      ctx.globalCompositeOperation = 'source-over';
       // Draw a border around the hovered tile
       if (this._hoveredTile.x >= 0 && this._hoveredTile.y >= 0) {
         ctx.strokeStyle = '#ff0';
@@ -245,49 +247,58 @@ export class TilesetViewer extends LitElement {
           ctx.strokeRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
         });
       // Display the palette indexes of the tiles
-      tilesetState.tiles
-        .filter(t => t.paletteIndex != null)
-        .forEach(t => {
-          const { x, y } = this.getTileCoords(t.tileIndex);
-          ctx.fillStyle = '#fff';
-          ctx.globalCompositeOperation = 'difference';
-          ctx.font = `${6 * scale}px monospace`;
-          ctx.textAlign = 'center';
-          const text = t.paletteIndex!.toString();
-          const textMetrics = ctx.measureText(text);
-          ctx.fillText(
-            text,
-            x + (TILE_SIZE * scale) / 2,
-            y +
-              (TILE_SIZE * scale) / 2 +
-              textMetrics.actualBoundingBoxAscent / 2
-          );
-          ctx.globalCompositeOperation = 'source-over';
-        });
+      if (tilesetState.viewOptions.showPaletteNumbers) {
+        tilesetState.tiles
+          .filter(t => t.paletteIndex != null)
+          .forEach(t => {
+            const { x, y } = this.getTileCoords(t.tileIndex);
+            ctx.fillStyle = '#fff';
+            ctx.globalCompositeOperation = 'difference';
+            ctx.font = `${6 * scale}px monospace`;
+            ctx.textAlign = 'center';
+            const text = t.paletteIndex!.toString();
+            const textMetrics = ctx.measureText(text);
+            ctx.fillText(
+              text,
+              x + (TILE_SIZE * scale) / 2,
+              y +
+                (TILE_SIZE * scale) / 2 +
+                textMetrics.actualBoundingBoxAscent / 2
+            );
+            ctx.globalCompositeOperation = 'source-over';
+          });
+      }
     }
   }
+
+  private _cachedImageData: ImageData | null = null;
 
   private getProcessedImage() {
     const img = tilesetState.imageCanvas;
     const blink = Math.floor(performance.now() / 500) % 2 === 0;
     const { selectedColors, currentTool } = tilesetState;
     if (
-      currentTool === 'highlight-color' &&
-      selectedColors?.length > 0 &&
-      blink
+      ((currentTool === 'highlight-color' && blink) ||
+        (currentTool === 'merge-colors' && tilesetState.replacementColor)) &&
+      selectedColors?.length > 0
     ) {
       // Copy to a new canvas so we don't modify the original
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(img, 0, 0);
-      // Replace pixels that match the selected colors with inverted colors
-      const invertedColors = selectedColors.map(c => [
-        255 - c[0],
-        255 - c[1],
-        255 - c[2],
-      ]);
+
+      let targetColors = selectedColors;
+      if (currentTool === 'highlight-color') {
+        targetColors = selectedColors.map(c => [
+          255 - c[0],
+          255 - c[1],
+          255 - c[2],
+        ]);
+      } else if (currentTool === 'merge-colors') {
+        targetColors = selectedColors.map(() => tilesetState.replacementColor!);
+      }
       const imageData = ctx.getImageData(0, 0, img.width, img.height);
       const { data } = imageData;
       for (let i = 0; i < data.length / 4; i++) {
@@ -303,7 +314,7 @@ export class TilesetViewer extends LitElement {
             c => c[0] === r && c[1] === g && c[2] === b
           );
           if (colorIndex >= 0) {
-            const [r2, g2, b2] = invertedColors[colorIndex];
+            const [r2, g2, b2] = targetColors[colorIndex];
             data[i * 4] = r2;
             data[i * 4 + 1] = g2;
             data[i * 4 + 2] = b2;

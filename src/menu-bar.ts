@@ -1,23 +1,24 @@
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { baseCss } from './common/base-css.js';
-import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from './common/constants.js';
 
 import './main-menu.js';
 import './tool-menu.js';
+import './view-options.js';
 
 @customElement('menu-bar')
 export class MenuBar extends LitElement {
   static styles = css`
     :host {
       display: flex;
-      background: ${COLOR_PRIMARY_BG};
-      padding: 10px;
-      color: ${COLOR_PRIMARY_FG};
-      align-items: baseline;
-      border-bottom: 1px solid #000;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+      background: rgb(67, 66, 66);
+      padding: 0 10px;
+      color: rgb(204, 197, 185);
+      align-items: center;
+      border-bottom: 1px solid rgb(0, 0, 0);
+      box-shadow: rgb(0 0 0 / 50%) 0px 3px 10px;
       z-index: 20;
+      height: 44px;
     }
     .title {
       font-size: 1.5em;
@@ -39,6 +40,7 @@ export class MenuBar extends LitElement {
       <div class="title">Tileset Builder</div>
       <div class="version">v0.1.0</div>
       <tool-menu></tool-menu>
+      <view-options></view-options>
     `;
   }
 }

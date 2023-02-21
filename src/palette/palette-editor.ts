@@ -4,6 +4,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import { sortIndexesByColorDistance } from '../common/color-utils.js';
 import {
+  COLOR_ALT_BG,
   COLOR_PRIMARY_BG,
   COLOR_PRIMARY_FG,
   COLOR_PRIMARY_HIGHLIGHT,
@@ -47,46 +48,55 @@ export class PaletteEditor extends LitElement {
         grid-template-columns: repeat(8, 1fr);
         justify-items: center;
       }
-      .color {
+      .color,
+      .color-outer {
         width: 24px;
         height: 24px;
+      }
+      .color {
+        pointer-events: none;
+      }
+      .color-outer {
         border: 1px solid #000;
         margin: 3px;
-        overflow: hidden;
-        position: relative;
+        transition: all 0.075s ease-in-out;
       }
-      .color.hover {
+      .color-outer.hover {
         border: 3px solid #fff;
         margin: 0px;
       }
-      .color.nearest {
+      .color-outer.nearest {
         border: 2px solid #ddd;
         margin: 1px;
       }
-      .color.nearest-2 {
+      .color-outer.nearest-2 {
         border: 2px solid #bbb;
         margin: 1px;
       }
-      .color.nearest-3 {
+      .color-outer.nearest-3 {
         border: 2px solid #999;
         margin: 1px;
       }
-      .transparent {
-        border-color: #f00;
+      .color-outer.transparent {
+        background-image: linear-gradient(
+            45deg,
+            ${COLOR_ALT_BG} 25%,
+            transparent 25%
+          ),
+          linear-gradient(-45deg, ${COLOR_ALT_BG} 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, ${COLOR_ALT_BG} 75%),
+          linear-gradient(-45deg, transparent 75%, ${COLOR_ALT_BG} 75%);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
       }
-      .transparent::after {
-        content: '';
-        position: absolute;
-        inset: 0px;
-        background: rgb(0, 0, 0);
-        width: 2px;
-        transform-origin: right top;
-        transform: rotate(45deg);
-        right: 0;
-        left: auto;
-        height: 100px;
+      .transparent .color {
+        width: 0px !important;
+        height: 0px;
+        border-style: solid;
+        border-width: 0 0 24px 24px;
+        border-color: transparent;
       }
-      .color.selected {
+      .selected .color-outer.selected {
         border: 3px solid ${COLOR_PRIMARY_HIGHLIGHT};
         margin: 0px;
       }
@@ -99,6 +109,7 @@ export class PaletteEditor extends LitElement {
       .unassigned.empty {
         display: none;
       }
+      .unassigned-colors .color-outer,
       .unassigned-colors .color {
         border-radius: 50%;
       }
@@ -123,7 +134,7 @@ export class PaletteEditor extends LitElement {
     const colorSwatch = event.target as HTMLElement;
     const i = parseInt(colorSwatch.dataset.index!, 10);
 
-    const colorSwatches = this.shadowRoot!.querySelectorAll('.color');
+    const colorSwatches = this.shadowRoot!.querySelectorAll('.color-outer');
     const colors = this.palette.colors!.concat(this.palette.unassignedColors!);
 
     if (colorSwatch.classList.contains('hover')) {
@@ -155,7 +166,7 @@ export class PaletteEditor extends LitElement {
   }
 
   mouseOutColor() {
-    const colorSwatches = this.shadowRoot!.querySelectorAll('.color');
+    const colorSwatches = this.shadowRoot!.querySelectorAll('.color-outer');
     colorSwatches.forEach(c =>
       c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
     );
@@ -216,9 +227,7 @@ export class PaletteEditor extends LitElement {
   render() {
     return html`
       <style type="text/css">
-        ${baseCss} .color::after {
-          content: '';
-        }
+        ${baseCss}
       </style>
       <div
         class="editor ${this.palette.index === tilesetState.selectedPaletteIndex
@@ -230,17 +239,23 @@ export class PaletteEditor extends LitElement {
           ${this.getPaletteSwatches().map(
             (color, i) =>
               html`<div
-                class="color ${i === 0
+                class="color-outer ${i === 0
                   ? 'transparent'
                   : ''} ${this.isColorSelected(color)}"
-                style="background-color: rgb(${color.color.join(',')})"
                 data-index="${i}"
                 @mouseover=${this.mouseOverColor}
                 @focus=${this.mouseOverColor}
                 @mouseout=${this.mouseOutColor}
                 @blur=${this.mouseOutColor}
                 @click=${this.clickColor}
-              ></div>`
+              >
+                <div
+                  class="color"
+                  style="${i === 0
+                    ? `border-left-color: rgb(${color.color.join(',')})`
+                    : `background-color: rgb(${color.color.join(',')})`}"
+                ></div>
+              </div>`
           )}
         </div>
         <div
@@ -253,15 +268,19 @@ export class PaletteEditor extends LitElement {
             ${this.palette.unassignedColors?.map(
               (color, i) =>
                 html`<div
-                  class="color ${this.isColorSelected(color)}"
-                  style="background-color: rgb(${color.color.join(',')})"
+                  class="color-outer ${this.isColorSelected(color)}"
                   data-index="${i + 16}"
                   @mouseover=${this.mouseOverColor}
                   @focus=${this.mouseOverColor}
                   @mouseout=${this.mouseOutColor}
                   @blur=${this.mouseOutColor}
                   @click=${this.clickColor}
-                ></div>`
+                >
+                  <div
+                    class="color ${this.isColorSelected(color)}"
+                    style="background-color: rgb(${color.color.join(',')})"
+                  ></div>
+                </div>`
             )}
           </div>
         </div>
