@@ -5,6 +5,7 @@ import { baseCss, buttonStyles } from '../common/base-css.js';
 import {
   colorsAreEqual,
   getGradient,
+  hexToRGBColor,
   mixColors,
   rgbColorToHex,
 } from '../common/color-utils.js';
@@ -223,6 +224,15 @@ export class MergePanel extends LitElement {
     }
   }
 
+  pickColor(e: InputEvent) {
+    const input = e.target as HTMLInputElement;
+    const color = hexToRGBColor(input.value);
+    if (color) {
+      tilesetState.replacementColor = color;
+      this._selectedColor = input.value;
+    }
+  }
+
   render() {
     return html`
       <style type="text/css">
@@ -268,17 +278,9 @@ export class MergePanel extends LitElement {
             </div>
           </div>
           </div>
-          <div class="color-input">
-            <input
-              type="text"
-              placeholder="#rrggbb"
-              .value=${this._selectedColor || ''}
-            />
-            <div
-              class="input-color"
-              style="background-color: ${this._selectedColor}"
-            ></div>
-          </div>
+          <lch-color-picker .color=${this._selectedColor} @color-change=${
+      this.pickColor
+    }></lch-color-picker>
           <div class="actions">
             <button @click=${this.merge} class="btn btn-primary">Merge</button>
           </div>

@@ -1,6 +1,11 @@
 /* eslint-disable import/extensions */
 import { property, State, storage } from '@lit-app/state';
-import { colorsAreEqual, EMPTY_COLOR } from './color-utils';
+import {
+  colorsAreEqual,
+  EMPTY_COLOR,
+  hexToRGBColor,
+  rgbColorToHex,
+} from './color-utils';
 import { TILE_SIZE, ToolType } from './constants';
 import {
   ColorData,
@@ -51,6 +56,10 @@ class TilesetState extends State implements Tileset {
   @property({ type: Object })
   viewOptions!: typeof DefaultViewOptions;
 
+  @storage({ key: 'transparencyColor' })
+  @property({ type: Object })
+  transparencyColor?: RGBColor;
+
   constructor() {
     super();
     this.palettes =
@@ -73,6 +82,9 @@ class TilesetState extends State implements Tileset {
     }
     if (!this.viewOptions) {
       this.viewOptions = DefaultViewOptions;
+    }
+    if (!this.transparencyColor) {
+      this.transparencyColor = [255, 0, 255];
     }
   }
 
@@ -255,6 +267,16 @@ class TilesetState extends State implements Tileset {
       }
       return p;
     });
+  }
+
+  setTransparencyColorHex(hex: string) {
+    this.transparencyColor = hexToRGBColor(hex);
+  }
+
+  getTransparencyColorHex() {
+    return this.transparencyColor
+      ? rgbColorToHex(this.transparencyColor)
+      : undefined;
   }
 }
 

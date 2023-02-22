@@ -1,6 +1,7 @@
 import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import '../color-picker.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import { colorsAreEqual, EMPTY_COLOR } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
@@ -167,13 +168,21 @@ export class MenuBar extends LitElement {
     tilesetState.deletePalette(paletteIndex);
   }
 
+  changeTransparencyColor(e: CustomEvent) {
+    tilesetState.setTransparencyColorHex(e.detail);
+  }
+
   render() {
     return html`
       <style type="text/css">
         ${baseCss}
       </style>
-      <h3>Palette Panel</h3>
       <div class="overall-actions">
+        <lch-color-picker
+          .color=${tilesetState.getTransparencyColorHex()}
+          @color-change=${this.changeTransparencyColor}
+        ></lch-color-picker>
+        <!-- TODO: Eye dropper -->
         <button class="btn btn-primary" @click="${this.addPalette}">
           Add
           Palette${this.tilesWithNoPaletteSelected() ? ' From Selected' : ''}

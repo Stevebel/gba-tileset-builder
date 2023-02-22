@@ -2,12 +2,15 @@ import {
   ColorSpace,
   deltaEJz,
   display,
+  getColor,
   Jzazbz,
   Lab,
+  LCH,
   mix,
   range,
   sRGB,
   steps,
+  to,
 } from 'colorjs.io/fn';
 import { ColorObject } from 'colorjs.io/types/src/color';
 import { ColorData, RGBColor } from './tileset.interface';
@@ -18,6 +21,7 @@ export const EMPTY_COLOR: ColorData = { color: [0, 0, 0], usageCount: 0 };
 ColorSpace.register(sRGB); // Can parse keywords and hex colors
 ColorSpace.register(Jzazbz);
 ColorSpace.register(Lab);
+ColorSpace.register(LCH);
 
 function rgbColorToColorObject(color: RGBColor): ColorObject {
   return {
@@ -119,4 +123,9 @@ export function mixColors(color: RGBColor, color2: RGBColor, amount = 0.5) {
 
 export function rgbColorToHex(color: RGBColor) {
   return `#${color.map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function hexToRGBColor(hex: string) {
+  const color = getColor(hex);
+  return to(color, 'sRGB').coords.map(c => Math.round(c * 255)) as RGBColor;
 }

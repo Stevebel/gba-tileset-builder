@@ -9,9 +9,9 @@ import {
 } from './common/constants.js';
 import { tilesetState } from './common/tileset-state.js';
 import './menu-bar.js';
+import './palette/merge-panel.js';
 import './palette/palette-panel.js';
 import './tileset-viewer.js';
-import './palette/merge-panel.js';
 
 @customElement('gba-tileset-builder')
 export class GbaTilesetBuilder extends LitElement {
