@@ -13,7 +13,6 @@ export interface TilesetPalette {
 
 export interface TilesetTile {
   tileIndex: number;
-  pixels?: RGBColor[];
   paletteIndex?: number;
   selected?: boolean;
 }

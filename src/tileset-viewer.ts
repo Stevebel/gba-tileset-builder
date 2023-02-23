@@ -1,12 +1,14 @@
 import { StateController } from '@lit-app/state';
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { colorsAreEqual } from './common/color-utils.js';
 import {
   COLOR_ALT_BG,
   COLOR_PRIMARY_BG,
   TILE_SIZE,
 } from './common/constants.js';
 import { tilesetState } from './common/tileset-state.js';
+import { RGBColor } from './common/tileset.interface.js';
 
 @customElement('tileset-viewer')
 export class TilesetViewer extends LitElement {
@@ -23,6 +25,7 @@ export class TilesetViewer extends LitElement {
       flex-direction: column;
       align-items: center;
       padding: 20px;
+      position: relative;
     }
     #tileset-canvas {
       object-fit: contain;
@@ -38,6 +41,23 @@ export class TilesetViewer extends LitElement {
       background-size: 20px 20px;
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
+    .eye-dropper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      padding: 5px;
+      background: ${COLOR_PRIMARY_BG};
+      border: 1px solid black;
+      border-radius: 50%;
+      display: flex;
+    }
+    .eye-dropper.hide {
+      display: none;
+    }
+    .eye-dropper-inner {
+      border: 1px solid black;
+      border-radius: 50%;
+    }
   `;
 
   ctrl = new StateController(this, tilesetState);
@@ -47,6 +67,9 @@ export class TilesetViewer extends LitElement {
 
   @query('#tileset-canvas')
   canvas!: HTMLCanvasElement;
+
+  @query('#eyedropper-canvas')
+  eyedropperCanvas!: HTMLCanvasElement;
 
   @state()
   private _scale = 4;
@@ -68,6 +91,18 @@ export class TilesetViewer extends LitElement {
     return html`
       <div class="tileset-viewer">
         <canvas id="tileset-canvas"></canvas>
+        <div
+          class="eye-dropper ${tilesetState.currentTool === 'eyedropper'
+            ? 'show'
+            : 'hide'}"
+        >
+          <canvas
+            id="eyedropper-canvas"
+            class="eye-dropper-inner"
+            width="50px"
+            height="50px"
+          ></canvas>
+        </div>
       </div>
     `;
   }
@@ -87,8 +122,7 @@ export class TilesetViewer extends LitElement {
     });
     // Hover over a tile
     this.canvas.addEventListener('mousemove', e => {
-      const { x, y } = this.getTileAt(e.offsetX, e.offsetY);
-      this.applyTool(x, y, e.shiftKey ? 'shift' : '');
+      this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
     });
     // Select a tile
     this.canvas.addEventListener('mousedown', e => {
@@ -101,35 +135,80 @@ export class TilesetViewer extends LitElement {
       }
     });
     this.canvas.addEventListener('mouseup', e => {
-      const { x, y } = this.getTileAt(e.offsetX, e.offsetY);
-      this.applyTool(x, y, e.shiftKey ? 'shift' : '');
+      this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
       if (this._tool === 'select' || this._tool === 'deselect') {
         this._tool = 'hover';
+      }
+      if (tilesetState.currentTool === 'eyedropper') {
+        tilesetState.currentTool = tilesetState.lastTool || 'select';
       }
       this._lastSelectedTile = { x: -1, y: -1 };
     });
 
     setInterval(() => {
       // Refesh if last render time is more than .1 seconds ago
-      if (performance.now() - this._lastRenderTime > 100) {
+      if (
+        tilesetState.currentTool === 'highlight-color' &&
+        performance.now() - this._lastRenderTime > 250
+      ) {
         this.renderTileset();
       }
-    }, 100);
+    }, 50);
   }
 
   private applyTool(x: number, y: number, modifier: string) {
-    const tileIndex = this.getTileIndex(x, y);
+    if (tilesetState.currentTool === 'eyedropper') {
+      const wholeX = Math.round(x / this._scale);
+      const wholeY = Math.round(y / this._scale);
+      const pixelIndex = (wholeY * tilesetState.imageData.width + wholeX) * 4;
+      const pixel = tilesetState.imageData?.data.slice(
+        pixelIndex,
+        pixelIndex + 3
+      );
+      const color = [...pixel] as RGBColor;
+      if (
+        !tilesetState.hoverColor ||
+        !colorsAreEqual(color, tilesetState.hoverColor)
+      ) {
+        tilesetState.hoverColor = color;
+      }
+      const eyedropper = this.shadowRoot?.querySelector(
+        '.eye-dropper'
+      ) as HTMLElement;
+      eyedropper.style.left = `${x - 40}px`;
+      eyedropper.style.top = `${y - 40}px`;
+      this.updateEyeDropper(
+        tilesetState.hoverColor,
+        x / this._scale,
+        y / this._scale
+      );
+      if (this._tool === 'select' || this._tool === 'deselect') {
+        tilesetState.transparencyColor = tilesetState.hoverColor;
+      }
+    }
+    if (tilesetState.currentTool !== 'select') {
+      if (this._hoveredTile.x !== -1 && this._hoveredTile.y !== -1) {
+        this._hoveredTile = { x: -1, y: -1 };
+      }
+
+      return;
+    }
+    const { x: tileX, y: tileY } = this.getTileAt(x, y);
+    const tileIndex = this.getTileIndex(tileX, y);
     switch (this._tool) {
       case 'hover':
-        if (x !== this._hoveredTile.x || y !== this._hoveredTile.y) {
-          this._hoveredTile = { x, y };
+        if (tileX !== this._hoveredTile.x || tileY !== this._hoveredTile.y) {
+          this._hoveredTile = { x: tileX, y: tileY };
           this.renderTileset();
         }
         break;
       case 'select':
       case 'deselect':
-        if (x !== this._lastSelectedTile.x || y !== this._lastSelectedTile.y) {
-          this._lastSelectedTile = { x, y };
+        if (
+          tileX !== this._lastSelectedTile.x ||
+          y !== this._lastSelectedTile.y
+        ) {
+          this._lastSelectedTile = { x: tileX, y: tileY };
           this._hoveredTile = { x: -1, y: -1 };
           const selectMultiple = modifier === 'shift';
           const deselect = this._tool === 'deselect';
@@ -159,28 +238,6 @@ export class TilesetViewer extends LitElement {
     const tileY = Math.floor(y / (TILE_SIZE * scale));
     return { x: tileX, y: tileY };
   }
-
-  // private getTileImageData(x: number, y: number): ImageData {
-  //   // Render the tile to a temporary canvas
-  //   const tempCanvas = document.createElement('canvas');
-  //   tempCanvas.width = TILE_SIZE;
-  //   tempCanvas.height = TILE_SIZE;
-  //   const ctx = tempCanvas.getContext('2d')!;
-  //   ctx.imageSmoothingEnabled = false;
-
-  //   ctx.drawImage(
-  //     tilesetState.imageCanvas!,
-  //     x * TILE_SIZE,
-  //     y * TILE_SIZE,
-  //     TILE_SIZE,
-  //     TILE_SIZE,
-  //     0,
-  //     0,
-  //     TILE_SIZE,
-  //     TILE_SIZE
-  //   );
-  //   return ctx.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
-  // }
 
   protected async update(
     changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
@@ -271,59 +328,121 @@ export class TilesetViewer extends LitElement {
     }
   }
 
-  private _cachedImageData: ImageData | null = null;
+  private updateEyeDropper(color: RGBColor, centerX = 0, centerY = 0) {
+    if (!tilesetState.imageCanvas) {
+      return;
+    }
+    const scale = 8;
+    const ctx = this.eyedropperCanvas.getContext('2d')!;
+    const selectWidth = Math.ceil(this.eyedropperCanvas.width / scale);
+    const selectHeight = Math.ceil(this.eyedropperCanvas.height / scale);
+    const x = Math.max(
+      0,
+      Math.min(
+        centerX - selectWidth / 2 + 0.5,
+        tilesetState.imageCanvas.width - selectWidth
+      )
+    );
+    const y = Math.max(
+      0,
+      Math.min(
+        centerY - selectHeight / 2 + 0.5,
+        tilesetState.imageCanvas.height - selectHeight
+      )
+    );
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(
+      0,
+      0,
+      this.eyedropperCanvas.width,
+      this.eyedropperCanvas.height
+    );
+    ctx.drawImage(
+      tilesetState.imageCanvas,
+      x,
+      y,
+      selectWidth,
+      selectHeight,
+      0,
+      0,
+      selectWidth * scale,
+      selectHeight * scale
+    );
+    ctx.fillStyle = `rgb(${color.join(',')})`;
+    ctx.arc(
+      this.eyedropperCanvas.width / 2,
+      this.eyedropperCanvas.height / 2,
+      1.5 * scale,
+      0,
+      2 * Math.PI
+    );
+    ctx.fill();
+  }
+
+  private _processedCanvasCtx?: CanvasRenderingContext2D;
 
   private getProcessedImage() {
-    const img = tilesetState.imageCanvas;
-    const blink = Math.floor(performance.now() / 500) % 2 === 0;
-    const { selectedColors, currentTool } = tilesetState;
-    if (
-      ((currentTool === 'highlight-color' && blink) ||
-        (currentTool === 'merge-colors' && tilesetState.replacementColor)) &&
-      selectedColors?.length > 0
-    ) {
-      // Copy to a new canvas so we don't modify the original
+    if (!this._processedCanvasCtx) {
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-      ctx.drawImage(img, 0, 0);
-
-      let targetColors = selectedColors;
-      if (currentTool === 'highlight-color') {
-        targetColors = selectedColors.map(c => [
-          255 - c[0],
-          255 - c[1],
-          255 - c[2],
-        ]);
-      } else if (currentTool === 'merge-colors') {
-        targetColors = selectedColors.map(() => tilesetState.replacementColor!);
-      }
-      const imageData = ctx.getImageData(0, 0, img.width, img.height);
-      const { data } = imageData;
-      for (let i = 0; i < data.length / 4; i++) {
-        const x = Math.floor((i % img.width) / TILE_SIZE);
-        const y = Math.floor(i / img.width / TILE_SIZE);
-        const tileIndex = this.getTileIndex(x, y);
-        const tile = tilesetState.tiles[tileIndex];
-        if (tile && tile.paletteIndex === tilesetState.selectedPaletteIndex) {
-          const r = data[i * 4];
-          const g = data[i * 4 + 1];
-          const b = data[i * 4 + 2];
-          const colorIndex = selectedColors.findIndex(
-            c => c[0] === r && c[1] === g && c[2] === b
-          );
-          if (colorIndex >= 0) {
-            const [r2, g2, b2] = targetColors[colorIndex];
-            data[i * 4] = r2;
-            data[i * 4 + 1] = g2;
-            data[i * 4 + 2] = b2;
-          }
-        }
-      }
-      ctx.putImageData(imageData, 0, 0);
-      return canvas;
+      canvas.width = tilesetState.imageCanvas.width;
+      canvas.height = tilesetState.imageCanvas.height;
+      this._processedCanvasCtx = canvas.getContext('2d')!;
     }
-    return img;
+    const blink = Math.floor(performance.now() / 500) % 2 === 0;
+    const { currentTool } = tilesetState;
+    let selectedColors: RGBColor[] = [];
+    if (
+      (currentTool === 'highlight-color' && blink) ||
+      currentTool === 'merge-colors'
+    ) {
+      selectedColors = tilesetState.selectedColors;
+    }
+    let targetColors: RGBColor[] = [];
+    if (currentTool === 'highlight-color') {
+      targetColors = selectedColors.map(c => [
+        255 - c[0],
+        255 - c[1],
+        255 - c[2],
+      ]);
+    } else if (currentTool === 'merge-colors') {
+      targetColors = selectedColors.map(() => tilesetState.replacementColor!);
+    }
+    const imgWidth = tilesetState.imageCanvas.width;
+    const imgHeight = tilesetState.imageCanvas.height;
+    // Duplicate tilesetState.imageData so we don't modify the original
+    const imageData = new ImageData(
+      tilesetState.imageData.data.slice(0),
+      imgWidth,
+      imgHeight
+    );
+    const { data } = imageData;
+    for (let i = 0; i < data.length / 4; i++) {
+      const x = Math.floor((i % imgWidth) / TILE_SIZE);
+      const y = Math.floor(i / imgWidth / TILE_SIZE);
+      const tileIndex = this.getTileIndex(x, y);
+      const tile = tilesetState.tiles[tileIndex];
+      const r = data[i * 4];
+      const g = data[i * 4 + 1];
+      const b = data[i * 4 + 2];
+      const colorIndex =
+        tile && tile.paletteIndex === tilesetState.selectedPaletteIndex
+          ? selectedColors.findIndex(
+              c => c[0] === r && c[1] === g && c[2] === b
+            )
+          : -1;
+      if (colorIndex >= 0) {
+        const [r2, g2, b2] = targetColors[colorIndex];
+        data[i * 4] = r2;
+        data[i * 4 + 1] = g2;
+        data[i * 4 + 2] = b2;
+      } else if (
+        tilesetState.transparencyColor &&
+        colorsAreEqual([r, g, b], tilesetState.transparencyColor)
+      ) {
+        data[i * 4 + 3] = 0;
+      }
+    }
+    this._processedCanvasCtx.putImageData(imageData, 0, 0);
+    return this._processedCanvasCtx.canvas;
   }
 }

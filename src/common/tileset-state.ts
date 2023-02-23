@@ -33,6 +33,12 @@ class TilesetState extends State implements Tileset {
   @property()
   imageCanvas!: HTMLCanvasElement;
 
+  @property()
+  imageData!: ImageData;
+
+  @property()
+  tilesWide!: number;
+
   @storage({ key: 'imageDataURL' })
   @property()
   imageDataURL!: string;
@@ -49,6 +55,10 @@ class TilesetState extends State implements Tileset {
   @property()
   currentTool!: ToolType;
 
+  @storage({ key: 'lastTool' })
+  @property()
+  lastTool?: ToolType;
+
   @property({ type: String })
   replacementColor?: RGBColor;
 
@@ -60,6 +70,9 @@ class TilesetState extends State implements Tileset {
   @property({ type: Object })
   transparencyColor?: RGBColor;
 
+  @property()
+  hoverColor?: RGBColor;
+
   constructor() {
     super();
     this.palettes =
@@ -69,7 +82,7 @@ class TilesetState extends State implements Tileset {
     if (!this.imageDataURL) {
       this.imageDataURL = '';
     } else {
-      this.setImageDataURL(this.imageDataURL, false);
+      this.setImageDataURL(this.imageDataURL);
     }
     if (!this.tiles) {
       this.tiles = [];
@@ -146,33 +159,25 @@ class TilesetState extends State implements Tileset {
     }
   }
 
-  async setImageDataURL(url: string, populateTiles = true) {
+  async setImageDataURL(url: string) {
     this.imageDataURL = url;
     this.imageCanvas = await imageToCanvas(url);
-    if (populateTiles) {
-      this.populateTileset(this.imageCanvas);
-    }
+    this.populateTileset(this.imageCanvas);
   }
 
   private populateTileset(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    this.imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const newTiles = [];
-    let idx = 0;
-    for (let y = 0; y < canvas.height; y += TILE_SIZE) {
-      for (let x = 0; x < canvas.width; x += TILE_SIZE) {
-        const tile = ctx.getImageData(x, y, TILE_SIZE, TILE_SIZE);
-        const pixels: RGBColor[] = [];
-        for (let i = 0; i < tile.data.length; i += 4) {
-          pixels.push([tile.data[i], tile.data[i + 1], tile.data[i + 2]]);
-        }
-        newTiles.push({
-          tileIndex: idx,
-          pixels,
-          selected: this.tiles[idx]?.selected || false,
-          paletteIndex: this.tiles[idx]?.paletteIndex,
-        });
-        idx += 1;
-      }
+    this.tilesWide = Math.ceil(canvas.width / TILE_SIZE);
+    const tilesHigh = Math.ceil(canvas.height / TILE_SIZE);
+    const tileCount = this.tilesWide * tilesHigh;
+    for (let i = 0; i < tileCount; i++) {
+      newTiles.push({
+        tileIndex: i,
+        selected: this.tiles[i]?.selected || false,
+        paletteIndex: this.tiles[i]?.paletteIndex,
+      });
     }
   }
 
@@ -181,6 +186,22 @@ class TilesetState extends State implements Tileset {
       Math.floor(pixelNum / (TILE_SIZE * TILE_SIZE)) +
       Math.floor((pixelNum % imageWidth) / TILE_SIZE)
     );
+  }
+
+  getPixelsForTile(tileIndex: number): RGBColor[] {
+    const pixels: RGBColor[] = [];
+    const tileRow = Math.floor(tileIndex / this.tilesWide);
+    const tileCol = tileIndex % this.tilesWide;
+    const tileX = tileCol * TILE_SIZE;
+    const tileY = tileRow * TILE_SIZE;
+    for (let i = 0; i < TILE_SIZE; i++) {
+      for (let j = 0; j < TILE_SIZE; j++) {
+        const pixelNum = (tileY + i) * this.imageCanvas.width + tileX + j;
+        const pixel = this.imageData.data.slice(pixelNum * 4, pixelNum * 4 + 3);
+        pixels.push([...pixel] as RGBColor);
+      }
+    }
+    return pixels;
   }
 
   mergeSelectedColors([r, g, b]: RGBColor) {
@@ -247,7 +268,7 @@ class TilesetState extends State implements Tileset {
     this.selectedColors = [];
 
     // Update image
-    this.setImageDataURL(imageCanvas.toDataURL(), true);
+    this.setImageDataURL(imageCanvas.toDataURL());
   }
 
   removeExcessEmptyColors(paletteIndex: number) {

@@ -14,4 +14,5 @@ export type ToolType =
   | 'deselect'
   | 'select-box'
   | 'highlight-color'
-  | 'merge-colors';
+  | 'merge-colors'
+  | 'eyedropper';

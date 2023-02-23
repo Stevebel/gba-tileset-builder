@@ -83,7 +83,6 @@ export class MenuBar extends LitElement {
 
   set color(value) {
     if (value !== this._color) {
-      console.log(value, this._color);
       this._color = value;
       this.updateHex();
     }
