@@ -42,7 +42,8 @@ export class TilesetViewer extends LitElement {
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
     .eye-dropper {
-      position: absolute;
+      position: fixed;
+      pointer-events: none;
       top: 0;
       left: 0;
       padding: 5px;
@@ -109,6 +110,9 @@ export class TilesetViewer extends LitElement {
 
   // Handle scroll wheel
   protected firstUpdated() {
+    const eyedropper = this.shadowRoot?.querySelector(
+      '.eye-dropper'
+    ) as HTMLElement;
     this.addEventListener('wheel', e => {
       if (e.ctrlKey) {
         e.preventDefault();
@@ -122,6 +126,8 @@ export class TilesetViewer extends LitElement {
     });
     // Hover over a tile
     this.canvas.addEventListener('mousemove', e => {
+      eyedropper.style.left = `${e.clientX - 60}px`;
+      eyedropper.style.top = `${e.clientY - 60}px`;
       this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
     });
     // Select a tile
@@ -172,11 +178,6 @@ export class TilesetViewer extends LitElement {
       ) {
         tilesetState.hoverColor = color;
       }
-      const eyedropper = this.shadowRoot?.querySelector(
-        '.eye-dropper'
-      ) as HTMLElement;
-      eyedropper.style.left = `${x - 40}px`;
-      eyedropper.style.top = `${y - 40}px`;
       this.updateEyeDropper(
         tilesetState.hoverColor,
         x / this._scale,
