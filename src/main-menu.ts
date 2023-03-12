@@ -55,6 +55,7 @@ export class MenuBar extends LitElement {
   @property({ type: Array }) menuItems = [
     { name: 'Open', icon: 'fa-folder-open', action: 'open' },
     { name: 'Save', icon: 'fa-save', action: 'save' },
+    { name: 'Export', icon: 'fa-file-export', action: 'export' },
   ];
 
   @state() menuOpen = false;

@@ -195,7 +195,7 @@ export class TilesetViewer extends LitElement {
       return;
     }
     const { x: tileX, y: tileY } = this.getTileAt(x, y);
-    const tileIndex = this.getTileIndex(tileX, y);
+    const tileIndex = this.getTileIndex(tileX, tileY);
     switch (this._tool) {
       case 'hover':
         if (tileX !== this._hoveredTile.x || tileY !== this._hoveredTile.y) {
