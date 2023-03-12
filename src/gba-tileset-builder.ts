@@ -8,6 +8,7 @@ import {
   COLOR_PRIMARY_HIGHLIGHT,
 } from './common/constants.js';
 import { tilesetState } from './common/tileset-state.js';
+import { downloadCompleteExportZip } from './export-handler.js';
 import './menu-bar.js';
 import './palette/merge-panel.js';
 import './palette/palette-panel.js';
@@ -112,6 +113,9 @@ export class GbaTilesetBuilder extends LitElement {
           break;
         case 'save':
           console.log('save');
+          break;
+        case 'export':
+          downloadCompleteExportZip();
           break;
         default:
           console.warn('Unknown action', event?.detail?.action);

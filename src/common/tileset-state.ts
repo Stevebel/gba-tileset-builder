@@ -179,11 +179,12 @@ class TilesetState extends State implements Tileset {
         paletteIndex: this.tiles[i]?.paletteIndex,
       });
     }
+    this.tiles = newTiles;
   }
 
-  private getTileIndex(pixelNum: number, imageWidth: number) {
+  getTileIndex(pixelNum: number, imageWidth: number) {
     return (
-      Math.floor(pixelNum / (TILE_SIZE * TILE_SIZE)) +
+      Math.floor(pixelNum / (TILE_SIZE * imageWidth)) * this.tilesWide +
       Math.floor((pixelNum % imageWidth) / TILE_SIZE)
     );
   }
