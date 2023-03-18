@@ -1,15 +1,15 @@
 /* eslint-disable import/extensions */
 import { property, State, storage } from '@lit-app/state';
 import {
-  colorsAreEqual,
+  colorToHex,
+  colorToRgb,
   EMPTY_COLOR,
-  hexToRGBColor,
-  rgbColorToHex,
+  hexToColor,
+  rgbToColor,
 } from './color-utils';
 import { TILE_SIZE, ToolType } from './constants';
 import {
   ColorData,
-  RGBColor,
   Tileset,
   TilesetPalette,
   TilesetTile,
@@ -49,7 +49,7 @@ class TilesetState extends State implements Tileset {
 
   @storage({ key: 'selectedColors' })
   @property({ type: Array })
-  selectedColors!: RGBColor[];
+  selectedColors!: number[];
 
   @storage({ key: 'currentTool' })
   @property()
@@ -60,7 +60,7 @@ class TilesetState extends State implements Tileset {
   lastTool?: ToolType;
 
   @property({ type: String })
-  replacementColor?: RGBColor;
+  replacementColor?: number;
 
   @storage({ key: 'viewOptions' })
   @property({ type: Object })
@@ -68,10 +68,10 @@ class TilesetState extends State implements Tileset {
 
   @storage({ key: 'transparencyColor' })
   @property({ type: Object })
-  transparencyColor?: RGBColor;
+  transparencyColor?: number;
 
   @property()
-  hoverColor?: RGBColor;
+  hoverColor?: number;
 
   constructor() {
     super();
@@ -96,8 +96,8 @@ class TilesetState extends State implements Tileset {
     if (!this.viewOptions) {
       this.viewOptions = DefaultViewOptions;
     }
-    if (!this.transparencyColor) {
-      this.transparencyColor = [255, 0, 255];
+    if (this.transparencyColor == null) {
+      this.transparencyColor = 0xff00ff;
     }
   }
 
@@ -147,14 +147,12 @@ class TilesetState extends State implements Tileset {
     });
   }
 
-  selectColor(paletteIndex: number, color: RGBColor) {
+  selectColor(paletteIndex: number, color: number) {
     if (this.selectedPaletteIndex !== paletteIndex) {
       this.selectedPaletteIndex = paletteIndex;
       this.selectedColors = [color];
-    } else if (this.selectedColors.some(c => colorsAreEqual(c, color))) {
-      this.selectedColors = this.selectedColors.filter(
-        c => !colorsAreEqual(c, color)
-      );
+    } else if (this.selectedColors.includes(color)) {
+      this.selectedColors = this.selectedColors.filter(c => c !== color);
     } else if (this.selectedColors.length > 0) {
       this.selectedColors = [
         this.selectedColors[this.selectedColors.length - 1],
@@ -195,8 +193,8 @@ class TilesetState extends State implements Tileset {
     );
   }
 
-  getPixelsForTile(tileIndex: number): RGBColor[] {
-    const pixels: RGBColor[] = [];
+  getPixelsForTile(tileIndex: number): number[] {
+    const pixels: number[] = [];
     const tileRow = Math.floor(tileIndex / this.tilesWide);
     const tileCol = tileIndex % this.tilesWide;
     const tileX = tileCol * TILE_SIZE;
@@ -204,8 +202,11 @@ class TilesetState extends State implements Tileset {
     for (let i = 0; i < TILE_SIZE; i++) {
       for (let j = 0; j < TILE_SIZE; j++) {
         const pixelNum = (tileY + i) * this.imageCanvas.width + tileX + j;
-        const pixel = this.imageData.data.slice(pixelNum * 4, pixelNum * 4 + 3);
-        pixels.push([...pixel] as RGBColor);
+        const [r, g, b] = this.imageData.data.slice(
+          pixelNum * 4,
+          pixelNum * 4 + 3
+        );
+        pixels.push(rgbToColor(r, g, b));
       }
     }
     return pixels;
@@ -218,10 +219,8 @@ class TilesetState extends State implements Tileset {
       return {
         ...tile,
         selected:
-          pixels.some(c => !colorsAreEqual(c, this.transparencyColor!)) &&
-          pixels.every(pixel =>
-            colors.some(color => colorsAreEqual(color.color, pixel))
-          ),
+          pixels.some(c => c !== this.transparencyColor!) &&
+          pixels.every(pixel => colors.some(color => color.color === pixel)),
       };
     });
   }
@@ -236,20 +235,15 @@ class TilesetState extends State implements Tileset {
     // would be selected if that color were added to the palette. The children of each
     // node are other colors that could further increase the number of selected tiles.
     interface ColorNode {
-      color: string;
+      color: number;
       tileCount: number;
       children: ColorNode[];
     }
-    function colorToString([r, g, b]: RGBColor) {
-      return `${r},${g},${b}`;
-    }
     const includedColors = new Set(
-      palette.colors
-        .concat(palette.unassignedColors)
-        .map(c => colorToString(c.color))
+      palette.colors.concat(palette.unassignedColors).map(c => c.color)
     );
     const colorTree: ColorNode[] = [];
-    function addTileToTree(colors: string[], nodes = colorTree) {
+    function addTileToTree(colors: number[], nodes = colorTree) {
       if (colors.length === 0) {
         return;
       }
@@ -274,17 +268,14 @@ class TilesetState extends State implements Tileset {
         }
       }
     }
-    const transparent = colorToString(this.transparencyColor!);
+    const transparent = this.transparencyColor!;
     this.tiles
       .filter(t => t.tileIndex == null)
       .forEach(tile => {
         const pixels = this.getPixelsForTile(tile.tileIndex);
-        const colors = new Set(pixels.map(colorToString));
+        const colors = new Set(pixels);
         const missingColors = [...colors].filter(
-          c =>
-            c !== 'undefined,undefined,undefined' &&
-            !includedColors.has(c) &&
-            c !== transparent
+          c => c != null && !includedColors.has(c) && c !== transparent
         );
         if (missingColors.length > 0 && missingColors.length <= numExtra) {
           addTileToTree(missingColors);
@@ -293,10 +284,10 @@ class TilesetState extends State implements Tileset {
     // Search the tree for the path that results in the most tiles
     // being selected.
     let maxTileCount = 0;
-    let maxTileCountPath: string[] = [];
+    let maxTileCountPath: number[] = [];
     function searchTree(
       nodes: ColorNode[],
-      path: string[] = [],
+      path: number[] = [],
       tileCount = 0
     ) {
       if (nodes.length === 0) {
@@ -317,7 +308,7 @@ class TilesetState extends State implements Tileset {
     searchTree(colorTree);
     // Add the colors in the path to the palette
     const newColors = maxTileCountPath.map(color => ({
-      color: color.split(',').map(c => parseInt(c, 10)) as RGBColor,
+      color,
     }));
     const newPalette = {
       ...palette,
@@ -326,7 +317,8 @@ class TilesetState extends State implements Tileset {
     this.selectTilesByPalette(newPalette);
   }
 
-  mergeSelectedColors([r, g, b]: RGBColor) {
+  mergeSelectedColors(color: number) {
+    const [r, g, b] = colorToRgb(color);
     const oldImageData = this.imageCanvas
       .getContext('2d', { willReadFrequently: true })!
       .getImageData(0, 0, this.imageCanvas.width, this.imageCanvas.height);
@@ -349,12 +341,12 @@ class TilesetState extends State implements Tileset {
       if (tileIndex < this.tiles.length) {
         const tile = this.tiles[tileIndex];
         if (tile.paletteIndex === this.selectedPaletteIndex) {
-          const color = [
+          const oldColor = rgbToColor(
             oldData[i],
             oldData[i + 1],
-            oldData[i + 2],
-          ] as RGBColor;
-          if (selectedColors.some(c => colorsAreEqual(c, color))) {
+            oldData[i + 2]
+          );
+          if (selectedColors.includes(oldColor)) {
             data[i] = r;
             data[i + 1] = g;
             data[i + 2] = b;
@@ -370,11 +362,11 @@ class TilesetState extends State implements Tileset {
     const palette = this.palettes[paletteIndex];
     const colors = [...palette.colors, ...palette.unassignedColors];
     const replaceIndexes = selectedColors
-      .map(c => colors.findIndex(cd => colorsAreEqual(c, cd.color)))
+      .map(c => colors.findIndex(cd => cd.color === c))
       .sort();
     const oldColorData = colors.filter((_, i) => replaceIndexes.includes(i));
     const newColorData: ColorData = {
-      color: [r, g, b],
+      color,
       usageCount: oldColorData.reduce((acc, c) => acc + (c.usageCount || 0), 0),
     };
     colors[replaceIndexes[0]] = newColorData;
@@ -394,31 +386,59 @@ class TilesetState extends State implements Tileset {
   }
 
   removeExcessEmptyColors(paletteIndex: number) {
-    const palette = this.palettes.find(p => p.index === paletteIndex)!;
-    // Skipping the first color because it's the transparent color
-    // remove empty colors and shift the rest down, moving unassigned colors up
-    // to the main palette
-    const colors = palette.colors.concat(palette.unassignedColors);
-    const newColors = colors.filter((c, i) => i === 0 || c.usageCount);
     this.palettes = this.palettes.map(p => {
       if (p.index === paletteIndex) {
-        return {
-          ...p,
-          colors: newColors.slice(0, 16),
-          unassignedColors: newColors.slice(16),
-        };
+        return this.getWithoutExcessEmptyColors(p);
       }
       return p;
     });
   }
 
+  getWithoutExcessEmptyColors(palette: TilesetPalette) {
+    // Skipping the first color because it's the transparent color
+    // remove empty colors and shift the rest down, moving unassigned colors up
+    // to the main palette
+    const colors = palette.colors.concat(palette.unassignedColors);
+    const newColors = colors.filter((c, i) => i === 0 || c.usageCount);
+    while (newColors.length < 16) {
+      newColors.push(EMPTY_COLOR);
+    }
+    return {
+      ...palette,
+      colors: newColors.slice(0, 16),
+      unassignedColors: newColors.slice(16),
+    };
+  }
+
   setTransparencyColorHex(hex: string) {
-    this.transparencyColor = hexToRGBColor(hex);
+    console.log(hex);
+    this.transparencyColor = hexToColor(hex);
+    // Iterate through the palettes and set the first color to the transparency color and any 0 usage colors to transparency color
+    this.palettes = this.palettes.map(p =>
+      this.getWithoutExcessEmptyColors({
+        ...p,
+        colors: this.withItemFirst(
+          p.colors,
+          c => c.color === this.transparencyColor
+        ).map(c => ({
+          ...c,
+          color: c.usageCount ? c.color : this.transparencyColor!,
+        })),
+      })
+    );
+  }
+
+  withItemFirst<T>(arr: T[], predicate: (item: T) => boolean) {
+    const index = arr.findIndex(predicate);
+    if (index === -1) {
+      return arr;
+    }
+    return [arr[index], ...arr.slice(0, index), ...arr.slice(index + 1)];
   }
 
   getTransparencyColorHex() {
-    return this.transparencyColor
-      ? rgbColorToHex(this.transparencyColor)
+    return this.transparencyColor != null
+      ? colorToHex(this.transparencyColor)
       : undefined;
   }
 }

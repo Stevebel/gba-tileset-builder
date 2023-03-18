@@ -3,7 +3,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import '../color-picker.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
-import { colorsAreEqual, EMPTY_COLOR } from '../common/color-utils.js';
+import { EMPTY_COLOR } from '../common/color-utils.js';
 import {
   COLOR_PRIMARY_BG,
   COLOR_PRIMARY_FG,
@@ -12,7 +12,6 @@ import {
 import { tilesetState } from '../common/tileset-state.js';
 import {
   ColorData,
-  RGBColor,
   TilesetPalette,
   TilesetTile,
 } from '../common/tileset.interface.js';
@@ -78,23 +77,21 @@ export class MenuBar extends LitElement {
     palette: TilesetPalette,
     tiles: TilesetTile[]
   ): TilesetPalette {
-    const colorCounts = new Map<string, number>();
-    const colors: RGBColor[] = [];
+    const colorCounts = new Map<number, number>();
+    const colors: number[] = [];
 
     tiles?.forEach(tile => {
       tilesetState.getPixelsForTile(tile.tileIndex).forEach(pixel => {
-        const color = pixel.join(',');
-        const count = colorCounts.get(color) || 0;
+        const count = colorCounts.get(pixel) || 0;
         if (count === 0) {
           colors.push(pixel);
         }
-        colorCounts.set(color, count + 1);
+        colorCounts.set(pixel, count + 1);
       });
     });
     const tileColorData: ColorData[] = colors
       .map(color => {
-        const colorStr = color.join(',');
-        const count = colorCounts.get(colorStr) || 0;
+        const count = colorCounts.get(color) || 0;
         return {
           color,
           usageCount: count,
@@ -103,9 +100,7 @@ export class MenuBar extends LitElement {
       .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
     const colorData: (ColorData | null)[] = [];
     palette.colors?.forEach(color => {
-      const tileColor = tileColorData.find(c =>
-        colorsAreEqual(c.color, color.color)
-      );
+      const tileColor = tileColorData.find(c => c.color === color.color);
       if (tileColor) {
         colorData.push(tileColor);
         tileColorData.splice(tileColorData.indexOf(tileColor), 1);
@@ -113,6 +108,15 @@ export class MenuBar extends LitElement {
         colorData.push(null);
       }
     });
+    if (
+      colorData.length === 0 ||
+      colorData[0]?.color !== tilesetState.transparencyColor!
+    ) {
+      colorData.unshift({
+        color: tilesetState.transparencyColor!,
+        usageCount: 0,
+      });
+    }
     colorData.forEach((color, i) => {
       if (color == null) {
         colorData[i] = tileColorData.shift() || EMPTY_COLOR;
