@@ -199,6 +199,18 @@ export class PaletteEditor extends LitElement {
     );
   }
 
+  selectByPalette() {
+    tilesetState.selectTilesByPaletteWithExtraColors(
+      this.palette as TilesetPalette,
+      Math.max(
+        0,
+        15 -
+          this.palette.colors!.filter(c => c.usageCount && c.usageCount > 0)
+            .length
+      )
+    );
+  }
+
   deletePalette() {
     this.dispatchEvent(
       new CustomEvent('delete-palette', {
@@ -311,6 +323,9 @@ export class PaletteEditor extends LitElement {
             ?disabled="${!this.hasTilesToRemove}"
           >
             Remove Tiles
+          </button>
+          <button @click=${this.selectByPalette} class="btn">
+            Select by Palette
           </button>
           <button @click=${this.deletePalette} class="btn btn-danger">
             Delete Palette
