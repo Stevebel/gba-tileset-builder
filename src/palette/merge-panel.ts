@@ -3,15 +3,13 @@ import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import {
-  colorsAreEqual,
+  colorToHex,
   getGradient,
-  hexToRGBColor,
+  hexToColor,
   mixColors,
-  rgbColorToHex,
 } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
 import { tilesetState } from '../common/tileset-state.js';
-import { RGBColor } from '../common/tileset.interface.js';
 
 @customElement('merge-panel')
 export class MergePanel extends LitElement {
@@ -125,7 +123,7 @@ export class MergePanel extends LitElement {
   ctrl = new StateController(this, tilesetState);
 
   @state()
-  private _swatches: readonly [RGBColor | null, RGBColor | null] = [null, null];
+  private _swatches: readonly [number | null, number | null] = [null, null];
 
   @state()
   private _selectingColor = false;
@@ -174,7 +172,7 @@ export class MergePanel extends LitElement {
       swatch
     );
     tilesetState.replacementColor = tilesetState.selectedColors![swatchIndex];
-    this._selectedColor = rgbColorToHex(tilesetState.replacementColor);
+    this._selectedColor = colorToHex(tilesetState.replacementColor);
     this._selectedPosition = swatchIndex;
   }
 
@@ -193,7 +191,7 @@ export class MergePanel extends LitElement {
       tilesetState.selectedColors[1],
       this._selectedPosition
     );
-    this._selectedColor = rgbColorToHex(tilesetState.replacementColor);
+    this._selectedColor = colorToHex(tilesetState.replacementColor);
   }
 
   updated(changes: Map<string, any>) {
@@ -205,8 +203,8 @@ export class MergePanel extends LitElement {
           tilesetState.selectedColors[1],
         ] as const;
         if (
-          !colorsAreEqual(swatches[0], this._swatches[0]) ||
-          !colorsAreEqual(swatches[1], this._swatches[1])
+          swatches[0] !== this._swatches[0] ||
+          swatches[1] !== this._swatches[1]
         ) {
           this._swatches = swatches;
           this.setGradientPosition(0.5);
@@ -226,7 +224,7 @@ export class MergePanel extends LitElement {
 
   pickColor(e: InputEvent) {
     const input = e.target as HTMLInputElement;
-    const color = hexToRGBColor(input.value);
+    const color = hexToColor(input.value);
     if (color) {
       tilesetState.replacementColor = color;
       this._selectedColor = input.value;
@@ -246,7 +244,7 @@ export class MergePanel extends LitElement {
               color => html`
                 <div
                   class="swatch"
-                  style="background-color: rgb(${color.join(',')})"
+                  style="background-color: ${colorToHex(color)}"
                   @click=${this.selectSwatch}
                 ></div>
               `

@@ -1,17 +1,27 @@
 import * as png from '@stevebel/png';
 import Metadata from '@stevebel/png/lib/helpers/metadata';
 import { strToU8, Zippable, zipSync } from 'fflate';
+import { colorToRgb, rgbToColor } from './common/color-utils.js';
 import { tilesetState } from './common/tileset-state.js';
 import { TilesetPalette } from './common/tileset.interface.js';
 
 export function getImageFile() {
-  const palette: Metadata['palette'] = tilesetState.palettes[0].colors.map(
-    (c, i) => [c.color[0], c.color[1], c.color[2], i === 0 ? 0 : 255]
-  );
+  const palette = tilesetState.palettes[0].colors.map((c, i) => [
+    ...colorToRgb(c.color),
+    i === 0 ? 0 : 255,
+  ]) as NonNullable<Metadata['palette']>;
   const data: number[] = [];
   const imageData = tilesetState.imageData.data;
   const imageWidth = tilesetState.imageData.width;
   const { tiles, palettes } = tilesetState;
+  const paletteMap: Map<number, number[]> = new Map();
+  palettes.forEach(pal => {
+    paletteMap.set(
+      pal.index,
+      pal.colors.map(c => c.color)
+    );
+  });
+
   for (let i = 0; i < imageData.length; i += 4) {
     const pixelNum = i / 4;
     const tileIndex = tilesetState.getTileIndex(pixelNum, imageWidth);
@@ -19,15 +29,14 @@ export function getImageFile() {
     if (tile?.paletteIndex == null) {
       data.push(...palette[0]);
     } else {
-      const tilePalette = palettes.find(p => p.index === tile.paletteIndex)!;
+      const tilePalette = paletteMap.get(tile.paletteIndex);
 
-      const color = [imageData[i], imageData[i + 1], imageData[i + 2]];
-      const paletteIndex = tilePalette.colors.findIndex(
-        c =>
-          c.color[0] === color[0] &&
-          c.color[1] === color[1] &&
-          c.color[2] === color[2]
+      const color = rgbToColor(
+        imageData[i],
+        imageData[i + 1],
+        imageData[i + 2]
       );
+      const paletteIndex = tilePalette?.findIndex(c => c === color) ?? -1;
       if (paletteIndex > 0) {
         data.push(...palette[paletteIndex]);
       } else {
@@ -65,7 +74,7 @@ export function getPalFile(palette: TilesetPalette) {
   // Use CR LF for line endings
   pal += 'JASC-PAL\r\n0100\r\n16\r\n';
   palette.colors.forEach(c => {
-    pal += `${c.color[0]} ${c.color[1]} ${c.color[2]}\r\n`;
+    pal += `${colorToRgb(c.color).join(' ')}\r\n`;
   });
   return strToU8(pal, true);
 }

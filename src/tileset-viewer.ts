@@ -1,14 +1,18 @@
 import { StateController } from '@lit-app/state';
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { colorsAreEqual } from './common/color-utils.js';
+import {
+  colorToHex,
+  colorToRgb,
+  invertColor,
+  rgbToColor,
+} from './common/color-utils.js';
 import {
   COLOR_ALT_BG,
   COLOR_PRIMARY_BG,
   TILE_SIZE,
 } from './common/constants.js';
 import { tilesetState } from './common/tileset-state.js';
-import { RGBColor } from './common/tileset.interface.js';
 
 @customElement('tileset-viewer')
 export class TilesetViewer extends LitElement {
@@ -167,15 +171,12 @@ export class TilesetViewer extends LitElement {
       const wholeX = Math.round(x / this._scale);
       const wholeY = Math.round(y / this._scale);
       const pixelIndex = (wholeY * tilesetState.imageData.width + wholeX) * 4;
-      const pixel = tilesetState.imageData?.data.slice(
+      const [r, g, b] = tilesetState.imageData!.data.slice(
         pixelIndex,
         pixelIndex + 3
       );
-      const color = [...pixel] as RGBColor;
-      if (
-        !tilesetState.hoverColor ||
-        !colorsAreEqual(color, tilesetState.hoverColor)
-      ) {
+      const color = rgbToColor(r, g, b);
+      if (!tilesetState.hoverColor || color !== tilesetState.hoverColor) {
         tilesetState.hoverColor = color;
       }
       this.updateEyeDropper(
@@ -329,7 +330,7 @@ export class TilesetViewer extends LitElement {
     }
   }
 
-  private updateEyeDropper(color: RGBColor, centerX = 0, centerY = 0) {
+  private updateEyeDropper(color: number, centerX = 0, centerY = 0) {
     if (!tilesetState.imageCanvas) {
       return;
     }
@@ -369,7 +370,7 @@ export class TilesetViewer extends LitElement {
       selectWidth * scale,
       selectHeight * scale
     );
-    ctx.fillStyle = `rgb(${color.join(',')})`;
+    ctx.fillStyle = colorToHex(color);
     ctx.arc(
       this.eyedropperCanvas.width / 2,
       this.eyedropperCanvas.height / 2,
@@ -391,20 +392,16 @@ export class TilesetViewer extends LitElement {
     }
     const blink = Math.floor(performance.now() / 500) % 2 === 0;
     const { currentTool } = tilesetState;
-    let selectedColors: RGBColor[] = [];
+    let selectedColors: number[] = [];
     if (
       (currentTool === 'highlight-color' && blink) ||
       currentTool === 'merge-colors'
     ) {
       selectedColors = tilesetState.selectedColors;
     }
-    let targetColors: RGBColor[] = [];
+    let targetColors: number[] = [];
     if (currentTool === 'highlight-color') {
-      targetColors = selectedColors.map(c => [
-        255 - c[0],
-        255 - c[1],
-        255 - c[2],
-      ]);
+      targetColors = selectedColors.map(invertColor);
     } else if (currentTool === 'merge-colors') {
       targetColors = selectedColors.map(() => tilesetState.replacementColor!);
     }
@@ -422,23 +419,22 @@ export class TilesetViewer extends LitElement {
       const y = Math.floor(i / imgWidth / TILE_SIZE);
       const tileIndex = this.getTileIndex(x, y);
       const tile = tilesetState.tiles[tileIndex];
-      const r = data[i * 4];
-      const g = data[i * 4 + 1];
-      const b = data[i * 4 + 2];
+      // const r = data[i * 4];
+      // const g = data[i * 4 + 1];
+      // const b = data[i * 4 + 2];
+      const color = rgbToColor(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
       const colorIndex =
         tile && tile.paletteIndex === tilesetState.selectedPaletteIndex
-          ? selectedColors.findIndex(
-              c => c[0] === r && c[1] === g && c[2] === b
-            )
+          ? selectedColors.indexOf(color)
           : -1;
       if (colorIndex >= 0) {
-        const [r2, g2, b2] = targetColors[colorIndex];
+        const [r2, g2, b2] = colorToRgb(targetColors[colorIndex]);
         data[i * 4] = r2;
         data[i * 4 + 1] = g2;
         data[i * 4 + 2] = b2;
       } else if (
         tilesetState.transparencyColor &&
-        colorsAreEqual([r, g, b], tilesetState.transparencyColor)
+        tilesetState.transparencyColor === color
       ) {
         data[i * 4 + 3] = 0;
       }

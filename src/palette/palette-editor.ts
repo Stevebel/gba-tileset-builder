@@ -2,7 +2,10 @@ import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
-import { sortIndexesByColorDistance } from '../common/color-utils.js';
+import {
+  colorToHex,
+  sortIndexesByColorDistance,
+} from '../common/color-utils.js';
 import {
   COLOR_ALT_BG,
   COLOR_PRIMARY_BG,
@@ -227,12 +230,7 @@ export class PaletteEditor extends LitElement {
 
   isColorSelected(color: ColorData) {
     return (color.usageCount &&
-      tilesetState.selectedColors?.some(
-        c =>
-          c[0] === color.color[0] &&
-          c[1] === color.color[1] &&
-          c[2] === color.color[2]
-      )) ||
+      tilesetState.selectedColors?.includes(color.color)) ||
       false
       ? 'selected'
       : '';
@@ -261,7 +259,7 @@ export class PaletteEditor extends LitElement {
                   ? 'transparent'
                   : ''} ${this.isColorSelected(color)}"
                 data-index="${i}"
-                title="Used in ${color.usageCount} tiles"
+                title="Used in ${color.usageCount} pixels"
                 @mouseover=${this.mouseOverColor}
                 @focus=${this.mouseOverColor}
                 @mouseout=${this.mouseOutColor}
@@ -272,9 +270,9 @@ export class PaletteEditor extends LitElement {
                   class="color"
                   style="${this.isTransparent(color)
                     ? (i === 0 &&
-                        `border-left-color: rgb(${color.color.join(',')})`) ||
+                        `border-left-color: ${colorToHex(color.color)}`) ||
                       ''
-                    : `background-color: rgb(${color.color.join(',')})`}"
+                    : `background-color: ${colorToHex(color.color)}`}"
                 ></div>
               </div>`
           )}
@@ -303,7 +301,7 @@ export class PaletteEditor extends LitElement {
                     class="color ${this.isColorSelected(color)}"
                     style="${this.isTransparent(color)
                       ? ''
-                      : `background-color: rgb(${color.color.join(',')})`}"
+                      : `background-color: ${colorToHex(color.color)}`}"
                   ></div>
                 </div>`
             )}

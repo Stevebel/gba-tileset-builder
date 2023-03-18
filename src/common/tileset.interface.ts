@@ -1,6 +1,5 @@
-export type RGBColor = [number, number, number];
 export interface ColorData {
-  color: RGBColor;
+  color: number;
   index?: number;
   usageCount?: number;
 }
