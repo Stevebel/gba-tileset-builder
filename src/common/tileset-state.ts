@@ -118,7 +118,7 @@ class TilesetState extends State implements Tileset {
     this.palettes = this.palettes.map(p =>
       p.index === palette.index ? { ...p, ...palette } : p
     );
-    this.removeExcessEmptyColors(this.selectedPaletteIndex!);
+    this.removeExcessEmptyColors(palette.index);
     return this.palettes.find(p => p.index === palette.index)!;
   }
 
@@ -139,6 +139,12 @@ class TilesetState extends State implements Tileset {
 
   deletePalette(index: number) {
     this.palettes = this.palettes.filter(p => p.index !== index);
+    this.tiles.map(tile => {
+      if (tile.paletteIndex === index) {
+        return { ...tile, paletteIndex: undefined };
+      }
+      return tile;
+    });
   }
 
   selectColor(paletteIndex: number, color: RGBColor) {
@@ -203,6 +209,121 @@ class TilesetState extends State implements Tileset {
       }
     }
     return pixels;
+  }
+
+  selectTilesByPalette(palette: TilesetPalette) {
+    const colors = palette.colors.concat(palette.unassignedColors);
+    this.tiles = this.tiles.map(tile => {
+      const pixels = this.getPixelsForTile(tile.tileIndex);
+      return {
+        ...tile,
+        selected:
+          pixels.some(c => !colorsAreEqual(c, this.transparencyColor!)) &&
+          pixels.every(pixel =>
+            colors.some(color => colorsAreEqual(color.color, pixel))
+          ),
+      };
+    });
+  }
+
+  selectTilesByPaletteWithExtraColors(palette: TilesetPalette, numExtra = 1) {
+    if (numExtra < 1) {
+      this.selectTilesByPalette(palette);
+      return;
+    }
+    // Create a tree of colors missing from the palette for each tile
+    // Each node in the tree is a color, and each node has a count of how many tiles
+    // would be selected if that color were added to the palette. The children of each
+    // node are other colors that could further increase the number of selected tiles.
+    interface ColorNode {
+      color: string;
+      tileCount: number;
+      children: ColorNode[];
+    }
+    function colorToString([r, g, b]: RGBColor) {
+      return `${r},${g},${b}`;
+    }
+    const includedColors = new Set(
+      palette.colors
+        .concat(palette.unassignedColors)
+        .map(c => colorToString(c.color))
+    );
+    const colorTree: ColorNode[] = [];
+    function addTileToTree(colors: string[], nodes = colorTree) {
+      if (colors.length === 0) {
+        return;
+      }
+      for (let i = 0; i < colors.length; i++) {
+        const color = colors[i];
+        const node = nodes.find(n => n.color === color);
+        const otherColors = colors.filter((_, j) => j !== i);
+        if (node) {
+          if (otherColors.length > 0) {
+            addTileToTree(otherColors, node.children);
+          } else {
+            node.tileCount++;
+          }
+        } else {
+          const newNode: ColorNode = {
+            color,
+            tileCount: otherColors.length > 0 ? 0 : 1,
+            children: [],
+          };
+          nodes.push(newNode);
+          addTileToTree(otherColors, newNode.children);
+        }
+      }
+    }
+    const transparent = colorToString(this.transparencyColor!);
+    this.tiles
+      .filter(t => t.tileIndex == null)
+      .forEach(tile => {
+        const pixels = this.getPixelsForTile(tile.tileIndex);
+        const colors = new Set(pixels.map(colorToString));
+        const missingColors = [...colors].filter(
+          c =>
+            c !== 'undefined,undefined,undefined' &&
+            !includedColors.has(c) &&
+            c !== transparent
+        );
+        if (missingColors.length > 0 && missingColors.length <= numExtra) {
+          addTileToTree(missingColors);
+        }
+      });
+    // Search the tree for the path that results in the most tiles
+    // being selected.
+    let maxTileCount = 0;
+    let maxTileCountPath: string[] = [];
+    function searchTree(
+      nodes: ColorNode[],
+      path: string[] = [],
+      tileCount = 0
+    ) {
+      if (nodes.length === 0) {
+        if (tileCount > maxTileCount) {
+          maxTileCount = tileCount;
+          maxTileCountPath = path;
+        }
+        return;
+      }
+      for (const node of nodes) {
+        searchTree(
+          node.children,
+          path.concat(node.color),
+          tileCount + node.tileCount
+        );
+      }
+    }
+    searchTree(colorTree);
+    // Add the colors in the path to the palette
+    const newColors = maxTileCountPath.map(color => ({
+      color: color.split(',').map(c => parseInt(c, 10)) as RGBColor,
+    }));
+    const newPalette = {
+      ...palette,
+      colors: palette.colors.concat(palette.unassignedColors).concat(newColors),
+    };
+    this.selectTilesByPalette(newPalette);
   }
 
   mergeSelectedColors([r, g, b]: RGBColor) {
