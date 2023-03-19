@@ -2,7 +2,6 @@ import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { baseCss } from './common/base-css.js';
-import { tilesetState } from './common/tileset-state.js';
 
 @customElement('view-options')
 export class ViewOptions extends LitElement {

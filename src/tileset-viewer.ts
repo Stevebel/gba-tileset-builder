@@ -12,7 +12,6 @@ import {
   COLOR_PRIMARY_BG,
   TILE_SIZE,
 } from './common/constants.js';
-import { tilesetState } from './common/tileset-state.js';
 
 @customElement('tileset-viewer')
 export class TilesetViewer extends LitElement {

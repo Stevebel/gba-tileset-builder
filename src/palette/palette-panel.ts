@@ -2,19 +2,22 @@ import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import '../color-picker.js';
+import {
+  addPalette,
+  addTilesToPalette,
+  deletePalette,
+  removeTilesFromPalette,
+  setTransparencyColor,
+} from '../commands/palettes.commands.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
-import { EMPTY_COLOR } from '../common/color-utils.js';
+import { colorToHex } from '../common/color-utils.js';
 import {
   COLOR_PRIMARY_BG,
   COLOR_PRIMARY_FG,
   COLOR_PRIMARY_HIGHLIGHT,
 } from '../common/constants.js';
-import { tilesetState } from '../common/tileset-state.js';
-import {
-  ColorData,
-  TilesetPalette,
-  TilesetTile,
-} from '../common/tileset.interface.js';
+import { TilesetPalette } from '../common/tileset.interface.js';
+import { editorState, execute } from '../state/editor-state.js';
 import './palette-editor.js';
 
 @customElement('palette-panel')
@@ -48,153 +51,59 @@ export class MenuBar extends LitElement {
     `,
   ];
 
-  ctrl = new StateController(this, tilesetState);
+  ctrl = new StateController(this, editorState);
 
   tilesWithNoPaletteSelected() {
     return (
-      tilesetState.tiles?.some(
+      editorState.currentDocument.tiles?.some(
         tile => tile.selected && tile.paletteIndex == null
       ) &&
-      !tilesetState.tiles?.some(
+      !editorState.currentDocument.tiles?.some(
         tile => tile.selected && tile.paletteIndex != null
       )
     );
   }
 
   paletteHasTilesToAdd(palette: TilesetPalette) {
-    return tilesetState.tiles?.some(
+    return editorState.currentDocument.tiles?.some(
       tile => tile.selected && tile.paletteIndex !== palette.index
     );
   }
 
   paletteHasTilesToRemove(palette: TilesetPalette) {
-    return tilesetState.tiles?.some(
+    return editorState.currentDocument.tiles?.some(
       tile => tile.selected && tile.paletteIndex === palette.index
     );
   }
 
-  updatePaletteToMatchTiles(
-    palette: TilesetPalette,
-    tiles: TilesetTile[]
-  ): TilesetPalette {
-    const colorCounts = new Map<number, number>();
-    const colors: number[] = [];
-
-    tiles?.forEach(tile => {
-      tilesetState.getPixelsForTile(tile.tileIndex).forEach(pixel => {
-        const count = colorCounts.get(pixel) || 0;
-        if (count === 0) {
-          colors.push(pixel);
-        }
-        colorCounts.set(pixel, count + 1);
-      });
-    });
-    const tileColorData: ColorData[] = colors
-      .map(color => {
-        const count = colorCounts.get(color) || 0;
-        return {
-          color,
-          usageCount: count,
-        };
-      })
-      .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
-    const colorData: (ColorData | null)[] = [];
-    palette.colors?.forEach(color => {
-      const tileColor = tileColorData.find(c => c.color === color.color);
-      if (tileColor) {
-        colorData.push(tileColor);
-        tileColorData.splice(tileColorData.indexOf(tileColor), 1);
-      } else {
-        colorData.push(null);
-      }
-    });
-    if (
-      colorData.length === 0 ||
-      colorData[0]?.color !== tilesetState.transparencyColor!
-    ) {
-      colorData.unshift({
-        color: tilesetState.transparencyColor!,
-        usageCount: 0,
-      });
-    }
-    colorData.forEach((color, i) => {
-      if (color == null) {
-        colorData[i] = tileColorData.shift() || EMPTY_COLOR;
-      }
-    });
-    while (colorData.length < 16) {
-      colorData.push(tileColorData.shift() || EMPTY_COLOR);
-    }
-
-    return tilesetState.updatePalette({
-      index: palette.index,
-      colors: colorData as ColorData[],
-      unassignedColors: tileColorData,
-    });
-  }
-
   addPalette() {
-    const selectedTiles = tilesetState.tiles?.filter(tile => tile.selected);
-
-    const palette = tilesetState.addPalette([]);
-    tilesetState.palettes![palette.index] = this.updatePaletteToMatchTiles(
-      palette,
-      selectedTiles
-    );
-    tilesetState.changeSelectedTilesPalette(palette.index);
+    execute(addPalette());
   }
 
   addTilesToPalette(e: CustomEvent) {
     const { paletteIndex } = e.detail;
-    const affectedPaletteIndexes = new Set(
-      tilesetState.tiles
-        ?.filter(tile => tile.selected && tile.paletteIndex !== paletteIndex)
-        .map(tile => tile.paletteIndex)
-        .filter(index => index != null) as number[]
-    );
-    affectedPaletteIndexes.add(paletteIndex);
-    tilesetState.changeSelectedTilesPalette(paletteIndex);
-    affectedPaletteIndexes.forEach(index => {
-      const paletteTiles = tilesetState.tiles?.filter(
-        tile => tile.paletteIndex === index
-      );
-      tilesetState.palettes![index] = this.updatePaletteToMatchTiles(
-        tilesetState.palettes![index],
-        paletteTiles
-      );
-    });
+    execute(addTilesToPalette(paletteIndex));
   }
 
   removeTilesFromPalette(e: CustomEvent) {
     const { paletteIndex } = e.detail;
-    tilesetState.tiles = tilesetState.tiles?.map(tile =>
-      tile.selected && tile.paletteIndex === paletteIndex
-        ? { ...tile, paletteIndex: undefined }
-        : tile
-    );
-    const paletteTiles = tilesetState.tiles?.filter(
-      tile => tile.paletteIndex === paletteIndex
-    );
-    tilesetState.palettes![paletteIndex] = this.updatePaletteToMatchTiles(
-      tilesetState.palettes![paletteIndex],
-      paletteTiles
-    );
+    execute(removeTilesFromPalette(paletteIndex));
   }
 
   protected firstUpdated() {}
 
   deletePalette(e: CustomEvent) {
     const { paletteIndex } = e.detail;
-    tilesetState.deletePalette(paletteIndex);
+    execute(deletePalette(paletteIndex));
   }
 
   changeTransparencyColor(e: CustomEvent) {
-    tilesetState.setTransparencyColorHex(e.detail);
+    execute(setTransparencyColor(e.detail));
   }
 
   selectEyedropper() {
-    tilesetState.lastTool = tilesetState.currentTool;
-    tilesetState.currentTool = 'eyedropper';
+    editorState.lastTool = editorState.currentTool;
+    editorState.currentTool = 'eyedropper';
   }
 
   render() {
@@ -205,7 +114,7 @@ export class MenuBar extends LitElement {
       <div class="overall-actions">
         <div class="transparency-color">
           <lch-color-picker
-            .color=${tilesetState.getTransparencyColorHex()}
+            .color=${colorToHex(editorState.currentDocument.transparencyColor)}
             @color-change=${this.changeTransparencyColor}
           ></lch-color-picker>
           <!-- Eye dropper -->
@@ -238,7 +147,7 @@ export class MenuBar extends LitElement {
         </button>
       </div>
       <div class="palettes">
-        ${tilesetState.palettes?.map(
+        ${editorState.currentDocument.palettes?.map(
           palette => html`
             <palette-editor
               .palette="${palette}"

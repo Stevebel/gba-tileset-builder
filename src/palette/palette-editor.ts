@@ -13,8 +13,8 @@ import {
   COLOR_PRIMARY_HIGHLIGHT,
   COLOR_PRIMARY_HIGHLIGHT_BG,
 } from '../common/constants.js';
-import { tilesetState } from '../common/tileset-state.js';
 import { ColorData, TilesetPalette } from '../common/tileset.interface.js';
+import { editorState } from '../state/editor-state.js';
 
 @customElement('palette-editor')
 export class PaletteEditor extends LitElement {
@@ -76,10 +76,6 @@ export class PaletteEditor extends LitElement {
         border: 2px solid #bbb;
         margin: 1px;
       }
-      .color-outer.nearest-3 {
-        border: 2px solid #999;
-        margin: 1px;
-      }
       .color-outer.transparent {
         background-image: linear-gradient(
             45deg,
@@ -122,7 +118,7 @@ export class PaletteEditor extends LitElement {
     `,
   ];
 
-  ctrl = new StateController(this, tilesetState);
+  ctrl = new StateController(this, editorState);
 
   @property()
   palette: Partial<TilesetPalette> = {};
@@ -144,7 +140,7 @@ export class PaletteEditor extends LitElement {
       return;
     }
     colorSwatches.forEach(c =>
-      c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
+      c.classList.remove('hover', 'nearest', 'nearest-2')
     );
     const colorData = colors[i];
     if (colorData) {
@@ -160,10 +156,6 @@ export class PaletteEditor extends LitElement {
         const secondNearestSwatch = colorSwatches[nearest[2]];
         secondNearestSwatch?.classList.add('nearest-2');
       }
-      // if (nearest.length > 3) {
-      //   const thirdNearestSwatch = colorSwatches[nearest[3]];
-      //   thirdNearestSwatch?.classList.add('nearest-3');
-      // }
     }
     colorSwatch.classList.add('hover');
   }
@@ -171,7 +163,7 @@ export class PaletteEditor extends LitElement {
   mouseOutColor() {
     const colorSwatches = this.shadowRoot!.querySelectorAll('.color-outer');
     colorSwatches.forEach(c =>
-      c.classList.remove('hover', 'nearest', 'nearest-2', 'nearest-3')
+      c.classList.remove('hover', 'nearest', 'nearest-2')
     );
   }
 
@@ -179,7 +171,7 @@ export class PaletteEditor extends LitElement {
     const colorSwatch = event.target as HTMLElement;
     const i = parseInt(colorSwatch.dataset.index!, 10);
     const colors = this.palette.colors!.concat(this.palette.unassignedColors!);
-    tilesetState.selectColor(this.palette.index!, colors[i].color);
+    editorState.selectColor(this.palette.index!, colors[i].color);
   }
 
   addSelectedTiles() {

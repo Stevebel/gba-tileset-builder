@@ -7,7 +7,6 @@ import {
   COLOR_PRIMARY_HIGHLIGHT,
   ToolType,
 } from './common/constants.js';
-import { tilesetState } from './common/tileset-state.js';
 
 import './main-menu.js';
 

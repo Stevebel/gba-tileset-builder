@@ -7,7 +7,6 @@ import {
   COLOR_PRIMARY_FG,
   COLOR_PRIMARY_HIGHLIGHT,
 } from './common/constants.js';
-import { tilesetState } from './common/tileset-state.js';
 import { downloadCompleteExportZip } from './export-handler.js';
 import './menu-bar.js';
 import './palette/merge-panel.js';

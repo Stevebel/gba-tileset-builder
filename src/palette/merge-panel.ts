@@ -9,7 +9,6 @@ import {
   mixColors,
 } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
-import { tilesetState } from '../common/tileset-state.js';
 
 @customElement('merge-panel')
 export class MergePanel extends LitElement {

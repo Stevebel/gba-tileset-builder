@@ -2,7 +2,6 @@ import * as png from '@stevebel/png';
 import Metadata from '@stevebel/png/lib/helpers/metadata';
 import { strToU8, Zippable, zipSync } from 'fflate';
 import { colorToRgb, rgbToColor } from './common/color-utils.js';
-import { tilesetState } from './common/tileset-state.js';
 import { TilesetPalette } from './common/tileset.interface.js';
 
 export function getImageFile() {
