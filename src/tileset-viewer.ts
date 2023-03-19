@@ -56,12 +56,43 @@ export class TilesetViewer extends LitElement {
       border-radius: 50%;
       display: flex;
     }
-    .eye-dropper.hide {
+    .hide {
       display: none;
     }
     .eye-dropper-inner {
       border: 1px solid black;
       border-radius: 50%;
+    }
+    .marching-ants {
+      margin: 20px;
+      background-size: 20px 2px, 20px 2px, 2px 20px, 2px 20px;
+      background-position: 0 0, 0 100%, 0 0, 100% 0;
+      background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+      animation: marching-ants 1s;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      animation-play-state: running;
+      background-image: linear-gradient(to right, #fff 50%, transparent 50%),
+        linear-gradient(to right, #fff 50%, transparent 50%),
+        linear-gradient(to bottom, #fff 50%, transparent 50%),
+        linear-gradient(to bottom, #fff 50%, transparent 50%);
+      color: #fff;
+    }
+    .select-box {
+      position: absolute;
+      pointer-events: none;
+      width: 150px;
+      height: 75px;
+      top: 10px;
+      left: 10px;
+    }
+    @keyframes marching-ants {
+      0% {
+        background-position: 0 0, 0 100%, 0 0, 100% 0;
+      }
+      100% {
+        background-position: 40px 0, -40px 100%, 0 -40px, 100% 40px;
+      }
     }
   `;
 
@@ -75,6 +106,9 @@ export class TilesetViewer extends LitElement {
 
   @query('#eyedropper-canvas')
   eyedropperCanvas!: HTMLCanvasElement;
+
+  @query('.select-box')
+  selectBox!: HTMLDivElement;
 
   @state()
   private _scale = 4;
@@ -92,6 +126,8 @@ export class TilesetViewer extends LitElement {
 
   private _lastRenderTime = 0;
 
+  private _selectBoxStart = { x: -1, y: -1 };
+
   render() {
     return html`
       <div class="tileset-viewer">
@@ -108,6 +144,11 @@ export class TilesetViewer extends LitElement {
             height="50px"
           ></canvas>
         </div>
+        <div
+          class="marching-ants select-box ${this._selectBoxStart.x >= 0
+            ? 'show'
+            : 'hide'}"
+        ></div>
       </div>
     `;
   }
@@ -130,8 +171,18 @@ export class TilesetViewer extends LitElement {
     });
     // Hover over a tile
     this.canvas.addEventListener('mousemove', e => {
-      eyedropper.style.left = `${e.clientX - 60}px`;
-      eyedropper.style.top = `${e.clientY - 60}px`;
+      if (tilesetState.currentTool === 'eyedropper') {
+        eyedropper.style.left = `${e.clientX - 60}px`;
+        eyedropper.style.top = `${e.clientY - 60}px`;
+      }
+
+      if (
+        tilesetState.currentTool === 'select-box' &&
+        this._selectBoxStart.x >= 0
+      ) {
+        this.updateSelectBox(e.offsetX, e.offsetY);
+      }
+
       this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
     });
     // Select a tile
@@ -143,16 +194,29 @@ export class TilesetViewer extends LitElement {
       } else {
         this._tool = 'select';
       }
+      if (tilesetState.currentTool === 'select-box') {
+        this._selectBoxStart = { x: e.offsetX, y: e.offsetY };
+        this._tool = 'select-box';
+        this.updateSelectBox(e.offsetX, e.offsetY);
+      }
     });
     this.canvas.addEventListener('mouseup', e => {
       this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
-      if (this._tool === 'select' || this._tool === 'deselect') {
+      if (this._tool === 'select-box') {
+        this.selectTilesInBox(e.offsetX, e.offsetY, e.altKey, e.shiftKey);
+      }
+      if (
+        this._tool === 'select' ||
+        this._tool === 'deselect' ||
+        this._tool === 'select-box'
+      ) {
         this._tool = 'hover';
       }
       if (tilesetState.currentTool === 'eyedropper') {
         tilesetState.currentTool = tilesetState.lastTool || 'select';
       }
       this._lastSelectedTile = { x: -1, y: -1 };
+      this._selectBoxStart = { x: -1, y: -1 };
     });
 
     setInterval(() => {
@@ -188,7 +252,10 @@ export class TilesetViewer extends LitElement {
         tilesetState.transparencyColor = tilesetState.hoverColor;
       }
     }
-    if (tilesetState.currentTool !== 'select') {
+    if (
+      tilesetState.currentTool !== 'select' &&
+      tilesetState.currentTool !== 'select-box'
+    ) {
       if (this._hoveredTile.x !== -1 && this._hoveredTile.y !== -1) {
         this._hoveredTile = { x: -1, y: -1 };
       }
@@ -217,6 +284,11 @@ export class TilesetViewer extends LitElement {
           tilesetState.selectTile(tileIndex, selectMultiple, deselect);
         }
         break;
+      case 'select-box':
+        if (this._hoveredTile.x >= 0) {
+          this._hoveredTile = { x: -1, y: -1 };
+        }
+        break;
       default:
         console.error('Unknown tool', this._tool);
         break;
@@ -228,9 +300,14 @@ export class TilesetViewer extends LitElement {
   }
 
   private getTileCoords(index: number): { x: number; y: number } {
-    const scale = this.intScale;
     const tileX = index % this.tilesWide;
     const tileY = Math.floor(index / this.tilesWide);
+    return { x: tileX, y: tileY };
+  }
+
+  private getTilePixelCoords(index: number): { x: number; y: number } {
+    const scale = this.intScale;
+    const { x: tileX, y: tileY } = this.getTileCoords(index);
     return { x: tileX * TILE_SIZE * scale, y: tileY * TILE_SIZE * scale };
   }
 
@@ -238,6 +315,13 @@ export class TilesetViewer extends LitElement {
     const scale = this.intScale;
     const tileX = Math.floor(x / (TILE_SIZE * scale));
     const tileY = Math.floor(y / (TILE_SIZE * scale));
+    return { x: tileX, y: tileY };
+  }
+
+  private getTileAtRounded(x: number, y: number): { x: number; y: number } {
+    const scale = this.intScale;
+    const tileX = Math.round(x / (TILE_SIZE * scale));
+    const tileY = Math.round(y / (TILE_SIZE * scale));
     return { x: tileX, y: tileY };
   }
 
@@ -299,7 +383,7 @@ export class TilesetViewer extends LitElement {
       tilesetState.tiles
         .filter(t => t.selected)
         .forEach(t => {
-          const { x, y } = this.getTileCoords(t.tileIndex);
+          const { x, y } = this.getTilePixelCoords(t.tileIndex);
           ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
           ctx.strokeStyle = '#fff';
           ctx.fillRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
@@ -310,7 +394,7 @@ export class TilesetViewer extends LitElement {
         tilesetState.tiles
           .filter(t => t.paletteIndex != null)
           .forEach(t => {
-            const { x, y } = this.getTileCoords(t.tileIndex);
+            const { x, y } = this.getTilePixelCoords(t.tileIndex);
             ctx.fillStyle = '#fff';
             ctx.globalCompositeOperation = 'difference';
             ctx.font = `${6 * scale}px monospace`;
@@ -328,6 +412,46 @@ export class TilesetViewer extends LitElement {
           });
       }
     }
+  }
+
+  private updateSelectBox(x: number, y: number) {
+    const minX = Math.min(this._selectBoxStart.x, x);
+    const minY = Math.min(this._selectBoxStart.y, y);
+    const maxX = Math.max(this._selectBoxStart.x, x);
+    const maxY = Math.max(this._selectBoxStart.y, y);
+
+    this.selectBox.style.left = `${minX}px`;
+    this.selectBox.style.top = `${minY}px`;
+    this.selectBox.style.width = `${maxX - minX}px`;
+    this.selectBox.style.height = `${maxY - minY}px`;
+  }
+
+  private selectTilesInBox(
+    endX: number,
+    endY: number,
+    remove: boolean,
+    add: boolean
+  ) {
+    const { x: startTileX, y: startTileY } = this.getTileAtRounded(
+      this._selectBoxStart.x,
+      this._selectBoxStart.y
+    );
+    const { x: endTileX, y: endTileY } = this.getTileAtRounded(endX, endY);
+    const minX = Math.min(startTileX, endTileX);
+    const maxX = Math.max(startTileX, endTileX) - 1;
+    const minY = Math.min(startTileY, endTileY);
+    const maxY = Math.max(startTileY, endTileY) - 1;
+    tilesetState.tiles = tilesetState.tiles.map(t => {
+      const { x, y } = this.getTileCoords(t.tileIndex);
+      const inBox = x >= minX && x <= maxX && y >= minY && y <= maxY;
+      return {
+        ...t,
+        selected:
+          (!remove && add && t.selected) ||
+          (!remove && inBox) ||
+          (remove && !inBox && t.selected),
+      };
+    });
   }
 
   private updateEyeDropper(color: number, centerX = 0, centerY = 0) {

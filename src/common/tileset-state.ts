@@ -138,10 +138,15 @@ class TilesetState extends State implements Tileset {
   }
 
   deletePalette(index: number) {
-    this.palettes = this.palettes.filter(p => p.index !== index);
-    this.tiles.map(tile => {
+    this.palettes = this.palettes
+      .filter(p => p.index !== index)
+      .map(p => (p.index > index ? { ...p, index: p.index - 1 } : p));
+    this.tiles = this.tiles.map(tile => {
       if (tile.paletteIndex === index) {
         return { ...tile, paletteIndex: undefined };
+      }
+      if (tile.paletteIndex && tile.paletteIndex > index) {
+        return { ...tile, paletteIndex: tile.paletteIndex - 1 };
       }
       return tile;
     });
@@ -411,7 +416,6 @@ class TilesetState extends State implements Tileset {
   }
 
   setTransparencyColorHex(hex: string) {
-    console.log(hex);
     this.transparencyColor = hexToColor(hex);
     // Iterate through the palettes and set the first color to the transparency color and any 0 usage colors to transparency color
     this.palettes = this.palettes.map(p =>
