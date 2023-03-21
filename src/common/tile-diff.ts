@@ -9,7 +9,7 @@ export type TilesetDiff = {
   applied: boolean;
 };
 
-function createDiff(
+export function createDiff(
   oldTiles: TilesetTile[],
   newTiles: TilesetTile[]
 ): TilesetDiff {

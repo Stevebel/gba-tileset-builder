@@ -3,16 +3,19 @@ import Metadata from '@stevebel/png/lib/helpers/metadata';
 import { strToU8, Zippable, zipSync } from 'fflate';
 import { colorToRgb, rgbToColor } from './common/color-utils.js';
 import { TilesetPalette } from './common/tileset.interface.js';
+import { pixelToTileIndex } from './common/utils.js';
+import { editorState } from './state/editor-state.js';
 
 export function getImageFile() {
-  const palette = tilesetState.palettes[0].colors.map((c, i) => [
+  const doc = editorState.currentDocument;
+  const palette = doc.palettes[0].colors.map((c, i) => [
     ...colorToRgb(c.color),
     i === 0 ? 0 : 255,
   ]) as NonNullable<Metadata['palette']>;
   const data: number[] = [];
-  const imageData = tilesetState.imageData.data;
-  const imageWidth = tilesetState.imageData.width;
-  const { tiles, palettes } = tilesetState;
+  const imageData = doc.imageData.data;
+  const imageWidth = doc.imageData.width;
+  const { tiles, palettes } = doc;
   const paletteMap: Map<number, number[]> = new Map();
   palettes.forEach(pal => {
     paletteMap.set(
@@ -23,7 +26,7 @@ export function getImageFile() {
 
   for (let i = 0; i < imageData.length; i += 4) {
     const pixelNum = i / 4;
-    const tileIndex = tilesetState.getTileIndex(pixelNum, imageWidth);
+    const tileIndex = pixelToTileIndex(pixelNum, imageWidth);
     const tile = tiles[tileIndex];
     if (tile?.paletteIndex == null) {
       data.push(...palette[0]);
@@ -44,8 +47,8 @@ export function getImageFile() {
     }
   }
   const metadata: Metadata = {
-    width: tilesetState.imageData.width,
-    height: tilesetState.imageData.height,
+    width: doc.imageData.width,
+    height: doc.imageData.height,
     colorType: 3,
     compression: 0,
     filter: 0,
@@ -82,7 +85,7 @@ export function downloadCompleteExportZip() {
   const files: Zippable = {
     'tileset.png': getImageFile(),
   };
-  tilesetState.palettes.forEach(p => {
+  editorState.currentDocument.palettes.forEach(p => {
     files[`palette${p.index.toString(10).padStart(2, '0')}.pal`] =
       getPalFile(p);
   });

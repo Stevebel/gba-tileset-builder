@@ -3,6 +3,7 @@ import { customElement } from 'lit/decorators.js';
 import { baseCss } from './common/base-css.js';
 
 import './main-menu.js';
+import { editorState } from './state/editor-state.js';
 import './tool-menu.js';
 import './view-options.js';
 
@@ -31,6 +32,20 @@ export class MenuBar extends LitElement {
     }
   `;
 
+  // Add listener for keyboard shortcuts
+  firstUpdated() {
+    document.addEventListener('keydown', this.onKeyDown);
+  }
+
+  onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'z' && e.ctrlKey) {
+      editorState.history.undo();
+    }
+    if ((e.key === 'y' || e.key === 'Z') && e.ctrlKey) {
+      editorState.history.redo();
+    }
+  }
+
   render() {
     return html`
       <style type="text/css">
@@ -38,7 +53,7 @@ export class MenuBar extends LitElement {
       </style>
       <main-menu></main-menu>
       <div class="title">Tileset Builder</div>
-      <div class="version">v0.1.0</div>
+      <div class="version">v0.9.0</div>
       <tool-menu></tool-menu>
       <view-options></view-options>
     `;

@@ -43,6 +43,22 @@ export function pixelCoordsToTileIndex(
   );
 }
 
+export function pixelToTileIndex(pixel: number, imageWidth: number) {
+  const tilesWide = Math.ceil(imageWidth / TILE_SIZE);
+  return pixelCoordsToTileIndex(
+    pixel % imageWidth,
+    Math.floor(pixel / imageWidth),
+    tilesWide
+  );
+}
+
+export function pixelCoordsToTileCoordsRounded(x: number, y: number) {
+  return {
+    x: Math.floor(x / TILE_SIZE),
+    y: Math.floor(y / TILE_SIZE),
+  };
+}
+
 export function withItemFirst<T>(arr: T[], predicate: (item: T) => boolean) {
   const index = arr.findIndex(predicate);
   if (index === -1) {

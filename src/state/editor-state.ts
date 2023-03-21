@@ -33,7 +33,13 @@ class EditorState extends State {
   replacementColor?: number;
 
   @property()
+  hoverColor?: number;
+
+  @property({ type: Object })
   currentDocument = new TilesetDocument();
+
+  @property({ type: Array })
+  openDocuments: TilesetDocument[] = [];
 
   constructor() {
     super();
@@ -46,10 +52,21 @@ class EditorState extends State {
     if (!this.selectedColors) {
       this.selectedColors = [];
     }
+    if (!this.openDocuments) {
+      this.openDocuments = [];
+      if (this.currentDocument) {
+        this.openDocuments.push(this.currentDocument);
+      }
+    }
   }
 
   public setCurrentDocument(document: TilesetDocument) {
     this.currentDocument = document;
+  }
+
+  public open(imageDataURL: string) {
+    this.currentDocument = new TilesetDocument(imageDataURL);
+    this.openDocuments.push(this.currentDocument);
   }
 
   public get history() {

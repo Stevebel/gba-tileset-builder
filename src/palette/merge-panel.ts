@@ -1,6 +1,7 @@
 import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { mergeColors } from '../commands/image.commands.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import {
   colorToHex,
@@ -9,6 +10,7 @@ import {
   mixColors,
 } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
+import { editorState, execute } from '../state/editor-state.js';
 
 @customElement('merge-panel')
 export class MergePanel extends LitElement {
@@ -119,7 +121,7 @@ export class MergePanel extends LitElement {
     `,
   ];
 
-  ctrl = new StateController(this, tilesetState);
+  ctrl = new StateController(this, editorState);
 
   @state()
   private _swatches: readonly [number | null, number | null] = [null, null];
@@ -134,14 +136,14 @@ export class MergePanel extends LitElement {
   private _selectedPosition: number | null = null;
 
   shouldShow() {
-    return tilesetState.currentTool === 'merge-colors';
+    return editorState.currentTool === 'merge-colors';
   }
 
   getGradient() {
-    if (tilesetState.selectedColors?.length >= 2) {
+    if (editorState.selectedColors?.length >= 2) {
       return `background: ${getGradient(
-        tilesetState.selectedColors[0],
-        tilesetState.selectedColors[1],
+        editorState.selectedColors[0],
+        editorState.selectedColors[1],
         'bottom'
       )}`;
     }
@@ -158,7 +160,7 @@ export class MergePanel extends LitElement {
   }
 
   selectColor(e: MouseEvent) {
-    if (this._selectingColor && tilesetState.selectedColors?.length >= 2) {
+    if (this._selectingColor && editorState.selectedColors?.length >= 2) {
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       const y = e.clientY - rect.top;
       this.setGradientPosition(y / rect.height);
@@ -170,14 +172,14 @@ export class MergePanel extends LitElement {
     const swatchIndex = Array.from(swatch.parentElement!.children).indexOf(
       swatch
     );
-    tilesetState.replacementColor = tilesetState.selectedColors![swatchIndex];
-    this._selectedColor = colorToHex(tilesetState.replacementColor);
+    editorState.replacementColor = editorState.selectedColors![swatchIndex];
+    this._selectedColor = colorToHex(editorState.replacementColor);
     this._selectedPosition = swatchIndex;
   }
 
   private setGradientPosition(pct: number | null) {
-    if (pct == null || tilesetState.selectedColors?.length < 2) {
-      tilesetState.replacementColor = undefined;
+    if (pct == null || editorState.selectedColors?.length < 2) {
+      editorState.replacementColor = undefined;
       this._selectedColor = null;
       this._selectedPosition = null;
       return;
@@ -185,21 +187,21 @@ export class MergePanel extends LitElement {
     // Clamp to 0-1
     pct = Math.max(0, Math.min(1, pct));
     this._selectedPosition = pct;
-    tilesetState.replacementColor = mixColors(
-      tilesetState.selectedColors[0],
-      tilesetState.selectedColors[1],
+    editorState.replacementColor = mixColors(
+      editorState.selectedColors[0],
+      editorState.selectedColors[1],
       this._selectedPosition
     );
-    this._selectedColor = colorToHex(tilesetState.replacementColor);
+    this._selectedColor = colorToHex(editorState.replacementColor);
   }
 
   updated(changes: Map<string, any>) {
     if (changes.size === 0) {
       // Check if swatches changed based on tileset state selected colors
-      if (tilesetState.selectedColors?.length >= 2) {
+      if (editorState.selectedColors?.length >= 2) {
         const swatches = [
-          tilesetState.selectedColors[0],
-          tilesetState.selectedColors[1],
+          editorState.selectedColors[0],
+          editorState.selectedColors[1],
         ] as const;
         if (
           swatches[0] !== this._swatches[0] ||
@@ -216,8 +218,20 @@ export class MergePanel extends LitElement {
   }
 
   merge() {
-    if (tilesetState.replacementColor) {
-      tilesetState.mergeSelectedColors(tilesetState.replacementColor);
+    if (
+      editorState.replacementColor &&
+      editorState.selectedPaletteIndex != null &&
+      editorState.selectedColors?.length >= 2
+    ) {
+      execute(
+        mergeColors(
+          editorState.selectedColors[0],
+          editorState.selectedColors[1],
+          editorState.replacementColor,
+          editorState.selectedPaletteIndex
+        )
+      );
+      editorState.selectedColors = [];
     }
   }
 
@@ -225,21 +239,22 @@ export class MergePanel extends LitElement {
     const input = e.target as HTMLInputElement;
     const color = hexToColor(input.value);
     if (color) {
-      tilesetState.replacementColor = color;
+      editorState.replacementColor = color;
       this._selectedColor = input.value;
     }
   }
 
   render() {
-    return html`
-      <style type="text/css">
+    return html` <style type="text/css">
         ${baseCss}
       </style>
       <div class="panel ${this.shouldShow() ? 'show' : 'hide'}">
         <h3 class="title">Merge Colors</h3>
+        ${editorState.selectedColors?.length >= 2
+          ? html`
         <div class="color-selector">
           <div class="swatches">
-            ${tilesetState.selectedColors?.map(
+            ${editorState.selectedColors?.map(
               color => html`
                 <div
                   class="swatch"
@@ -276,13 +291,15 @@ export class MergePanel extends LitElement {
           </div>
           </div>
           <lch-color-picker .color=${this._selectedColor} @color-change=${
-      this.pickColor
-    }></lch-color-picker>
+              this.pickColor
+            }></lch-color-picker>
           <div class="actions">
             <button @click=${this.merge} class="btn btn-primary">Merge</button>
           </div>
         </div>
       </div>
-    `;
+    `
+          : html` <p class="message">Select two colors to merge</p> `}
+      </div>`;
   }
 }

@@ -39,9 +39,6 @@ export class TilesetDocument extends State implements Tileset {
   @property({ type: Object })
   transparencyColor!: number;
 
-  @property()
-  hoverColor?: number;
-
   @property({ type: Array })
   history: CommandHistory<this>;
 
@@ -49,12 +46,15 @@ export class TilesetDocument extends State implements Tileset {
 
   private loading = false;
 
-  constructor() {
+  constructor(imageDataURL?: string) {
     super();
     this.palettes =
       this.palettes?.filter(
-        p => p.colors.length > 0 || p.unassignedColors.length > 0
+        p => p?.colors.length > 0 || p?.unassignedColors.length > 0
       ) || [];
+    if (imageDataURL) {
+      this.imageDataURL = imageDataURL;
+    }
     if (!this.imageDataURL) {
       this.imageDataURL = '';
     } else {
@@ -73,11 +73,12 @@ export class TilesetDocument extends State implements Tileset {
   }
 
   async updateImageFromDataURL() {
+    console.log('updateImageFromDataURL');
     this.loading = true;
     this.loadingPromise = imageToCanvas(this.imageDataURL);
     this.imageCanvas = await this.loadingPromise;
     this.loading = false;
-
+    console.log('updateImageFromDataURL done');
     const ctx = this.imageCanvas.getContext('2d')!;
     this.imageData = ctx.getImageData(
       0,

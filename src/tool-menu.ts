@@ -9,6 +9,7 @@ import {
 } from './common/constants.js';
 
 import './main-menu.js';
+import { editorState } from './state/editor-state.js';
 
 @customElement('tool-menu')
 export class ToolMenu extends LitElement {
@@ -52,7 +53,7 @@ export class ToolMenu extends LitElement {
     }
   `;
 
-  ctrl = new StateController(this, tilesetState);
+  ctrl = new StateController(this, editorState);
 
   updated() {
     const toolButtons = this.shadowRoot!.querySelectorAll('.tool-button');
@@ -60,12 +61,12 @@ export class ToolMenu extends LitElement {
       const { toolType } = (button as HTMLElement).dataset;
       button.addEventListener('click', () => {
         if (toolType) {
-          tilesetState.currentTool = toolType as ToolType;
+          editorState.currentTool = toolType as ToolType;
           toolButtons.forEach(b => b.classList.remove('selected'));
           button.classList.add('selected');
         }
       });
-      if (toolType === tilesetState.currentTool) {
+      if (toolType === editorState.currentTool) {
         button.classList.add('selected');
       }
     });

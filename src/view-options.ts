@@ -2,6 +2,7 @@ import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { baseCss } from './common/base-css.js';
+import { editorState } from './state/editor-state.js';
 
 @customElement('view-options')
 export class ViewOptions extends LitElement {
@@ -21,14 +22,14 @@ export class ViewOptions extends LitElement {
     }
   `;
 
-  ctrl = new StateController(this, tilesetState);
+  ctrl = new StateController(this, editorState);
 
   updateState(e: Event) {
     const target = e.target as HTMLInputElement;
     const targetName = target.name;
-    if (targetName in tilesetState.viewOptions) {
-      tilesetState.viewOptions = {
-        ...tilesetState.viewOptions,
+    if (targetName in editorState.viewOptions) {
+      editorState.viewOptions = {
+        ...editorState.viewOptions,
         [targetName]: target.checked,
       };
     }
@@ -47,7 +48,7 @@ export class ViewOptions extends LitElement {
               type="checkbox"
               id="showGrid"
               name="showGrid"
-              .checked=${tilesetState.viewOptions.showGrid}
+              .checked=${editorState.viewOptions.showGrid}
               @change=${this.updateState}
             />
             <span>Grid</span>
@@ -57,7 +58,7 @@ export class ViewOptions extends LitElement {
               type="checkbox"
               id="showPaletteNumbers"
               name="showPaletteNumbers"
-              .checked=${tilesetState.viewOptions.showPaletteNumbers}
+              .checked=${editorState.viewOptions.showPaletteNumbers}
               @change=${this.updateState}
             />
             <span>Palette Numbers</span>

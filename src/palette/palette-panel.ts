@@ -53,6 +53,8 @@ export class MenuBar extends LitElement {
 
   ctrl = new StateController(this, editorState);
 
+  ctrl2 = new StateController(this, editorState.currentDocument);
+
   tilesWithNoPaletteSelected() {
     return (
       editorState.currentDocument.tiles?.some(
