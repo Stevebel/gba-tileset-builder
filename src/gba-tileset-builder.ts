@@ -1,5 +1,11 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, property, queryAll } from 'lit/decorators.js';
+import {
+  customElement,
+  property,
+  query,
+  queryAll,
+  state,
+} from 'lit/decorators.js';
 
 import { StateController } from '@lit-app/state';
 import {
@@ -7,11 +13,12 @@ import {
   COLOR_PRIMARY_FG,
   COLOR_PRIMARY_HIGHLIGHT,
 } from './common/constants.js';
-import { tilesetState } from './common/tileset-state.js';
+import './common/toast-message.js';
 import { downloadCompleteExportZip } from './export-handler.js';
 import './menu-bar.js';
 import './palette/merge-panel.js';
 import './palette/palette-panel.js';
+import { editorState } from './state/editor-state.js';
 import './tileset-viewer.js';
 
 @customElement('gba-tileset-builder')
@@ -20,9 +27,17 @@ export class GbaTilesetBuilder extends LitElement {
 
   @property() data = { value: 'Hello World' };
 
-  ctrl = new StateController(this, tilesetState);
+  @state()
+  private _lastActionType: 'execute' | 'undo' = 'execute';
+
+  @state()
+  private _lastActionDescription = 'No actions yet';
+
+  ctrl = new StateController(this, editorState);
 
   @queryAll('main > *') mainChildren!: HTMLElement[];
+
+  @query('toast-message') toastMessage!: any;
 
   static styles = css`
     :host {
@@ -72,7 +87,17 @@ export class GbaTilesetBuilder extends LitElement {
       <main>
         <palette-panel></palette-panel>
         <merge-panel></merge-panel>
-        <tileset-viewer .tiles="${tilesetState.tiles}"></tileset-viewer>
+        <tileset-viewer
+          .tiles="${editorState.currentDocument.tiles}"
+        ></tileset-viewer>
+        <toast-message>
+          <span slot="icon">
+            ${this._lastActionType === 'undo'
+              ? html`<span role="img" aria-label="Undo">↩️</span>`
+              : html`<span role="img" aria-label="Redo">↪️</span>`}
+          </span>
+          ${this._lastActionDescription}
+        </toast-message>
       </main>
 
       <p class="app-footer">
@@ -104,7 +129,7 @@ export class GbaTilesetBuilder extends LitElement {
             reader.onload = loadEvent => {
               const data = loadEvent.target?.result;
               if (data) {
-                tilesetState.setImageDataURL(data as string);
+                editorState.open(data as string);
               }
             };
             reader.readAsDataURL(file);
@@ -121,6 +146,19 @@ export class GbaTilesetBuilder extends LitElement {
           console.warn('Unknown action', event?.detail?.action);
           break;
       }
+    });
+    // Display toast for command history changes
+    document.addEventListener('command-executed', (e: Event) => {
+      const event = e as CustomEvent;
+      this._lastActionType = 'execute';
+      this._lastActionDescription = event.detail;
+      this.toastMessage.show();
+    });
+    document.addEventListener('command-undone', (e: Event) => {
+      const event = e as CustomEvent;
+      this._lastActionType = 'undo';
+      this._lastActionDescription = event.detail;
+      this.toastMessage.show();
     });
   }
 }
