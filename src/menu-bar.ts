@@ -53,7 +53,7 @@ export class MenuBar extends LitElement {
       </style>
       <main-menu></main-menu>
       <div class="title">Tileset Builder</div>
-      <div class="version">v0.9.1</div>
+      <div class="version">v0.9.2</div>
       <tool-menu></tool-menu>
       <view-options></view-options>
     `;

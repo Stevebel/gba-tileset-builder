@@ -16,6 +16,7 @@ import {
   COLOR_PRIMARY_BG,
   TILE_SIZE,
 } from './common/constants.js';
+import { tileIndexToCoords } from './common/utils.js';
 import { editorState, execute } from './state/editor-state.js';
 import { TilesetDocumentStateController } from './state/tileset-document-state-controller.js';
 
@@ -36,9 +37,13 @@ export class TilesetViewer extends LitElement {
       padding: 20px;
       position: relative;
     }
-    #tileset-canvas {
+    /* #tileset-canvas {
       object-fit: contain;
       image-rendering: pixelated;
+
+    } */
+    .canvas-container {
+      position: relative;
       background-image: linear-gradient(
           45deg,
           ${COLOR_ALT_BG} 25%,
@@ -50,6 +55,39 @@ export class TilesetViewer extends LitElement {
       background-size: 20px 20px;
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
+    #tileset-canvas {
+      image-rendering: pixelated;
+    }
+    #overlay {
+      font-size: 20px;
+      font-family: monospace;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: grid;
+    }
+    .overlay-tile {
+      border: 1px solid #999;
+      mix-blend-mode: difference;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .overlay-tile:hover {
+      border: 3px solid #ff0;
+    }
+    .overlay-tile.selected {
+      background: rgba(255, 255, 0, 0.8);
+    }
+    .palette-index {
+      font-weight: bold;
+      color: #fff;
+      mix-blend-mode: difference;
+      pointer-events: none;
+    }
+
     .eye-dropper {
       position: fixed;
       pointer-events: none;
@@ -69,7 +107,6 @@ export class TilesetViewer extends LitElement {
       border-radius: 50%;
     }
     .marching-ants {
-      margin: 20px;
       background-size: 20px 2px, 20px 2px, 2px 20px, 2px 20px;
       background-position: 0 0, 0 100%, 0 0, 100% 0;
       background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
@@ -115,17 +152,19 @@ export class TilesetViewer extends LitElement {
   @query('.select-box')
   selectBox!: HTMLDivElement;
 
+  @query('#overlay')
+  overlay!: HTMLDivElement;
+
   @state()
   private _scale = 4;
 
-  @state()
   private _hoveredTile = { x: -1, y: -1 };
 
-  @state()
   private _lastSelectedTile = { x: -1, y: -1 };
 
-  @state()
   private _tool = 'hover';
+
+  private _dirty = true;
 
   private tilesWide = 0;
 
@@ -136,7 +175,30 @@ export class TilesetViewer extends LitElement {
   render() {
     return html`
       <div class="tileset-viewer">
-        <canvas id="tileset-canvas"></canvas>
+        <div class="canvas-container">
+          <canvas id="tileset-canvas"></canvas>
+          <div id="overlay">
+            ${this.doc?.tiles.map(
+              (tile, i) => html`
+                <div
+                  class="overlay-tile ${tile.selected ? 'selected' : ''}"
+                  data-index="${i}"
+                >
+                  ${tile.paletteIndex != null
+                    ? html`
+                        <span class="palette-index">${tile.paletteIndex}</span>
+                      `
+                    : ''}
+                </div>
+              `
+            )}
+          </div>
+          <div
+            class="marching-ants select-box ${this._selectBoxStart.x >= 0
+              ? 'show'
+              : 'hide'}"
+          ></div>
+        </div>
         <div
           class="eye-dropper ${editorState.currentTool === 'eyedropper'
             ? 'show'
@@ -149,11 +211,6 @@ export class TilesetViewer extends LitElement {
             height="50px"
           ></canvas>
         </div>
-        <div
-          class="marching-ants select-box ${this._selectBoxStart.x >= 0
-            ? 'show'
-            : 'hide'}"
-        ></div>
       </div>
     `;
   }
@@ -171,11 +228,19 @@ export class TilesetViewer extends LitElement {
         } else if (e.deltaY < 0 && this._scale < 8) {
           this._scale += 0.25;
         }
-        this.renderTileset();
       }
     });
     // Hover over a tile
-    this.canvas.addEventListener('mousemove', e => {
+    this.overlay.addEventListener('mousemove', e => {
+      // Get mouse position relative to the overlay
+      const rect = this.overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (this._tool === 'hover') {
+        return;
+      }
+      const tile = e.target as HTMLElement;
+      const tileIndex = parseInt(tile.dataset.index || '-1', 10);
       if (editorState.currentTool === 'eyedropper') {
         eyedropper.style.left = `${e.clientX - 60}px`;
         eyedropper.style.top = `${e.clientY - 60}px`;
@@ -185,36 +250,49 @@ export class TilesetViewer extends LitElement {
         editorState.currentTool === 'select-box' &&
         this._selectBoxStart.x >= 0
       ) {
-        this.updateSelectBox(e.offsetX, e.offsetY);
+        this.updateSelectBox(x, y);
       }
 
-      this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
+      this.applyTool(x, y, tileIndex, e.shiftKey ? 'shift' : '');
     });
     // Select a tile
-    this.canvas.addEventListener('mousedown', e => {
-      const { x, y } = this.getTileAt(e.offsetX, e.offsetY);
-      const tileIndex = this.getTileIndex(x, y);
+    this.overlay.addEventListener('mousedown', e => {
+      // Get mouse position relative to the overlay
+      const rect = this.overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const tile = e.target as HTMLElement;
+      const tileIndex = parseInt(tile.dataset.index || '-1', 10);
       if (this.doc.tiles[tileIndex].selected) {
         this._tool = 'deselect';
       } else {
         this._tool = 'select';
       }
       if (editorState.currentTool === 'select-box') {
-        this._selectBoxStart = { x: e.offsetX, y: e.offsetY };
+        this._selectBoxStart = { x, y };
         this._tool = 'select-box';
-        this.updateSelectBox(e.offsetX, e.offsetY);
+        this.updateSelectBox(x, y);
       }
     });
-    this.canvas.addEventListener('mouseup', e => {
-      this.applyTool(e.offsetX, e.offsetY, e.shiftKey ? 'shift' : '');
+    this.overlay.addEventListener('mouseup', e => {
+      // Get mouse position relative to the overlay
+      const rect = this.overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const tile = e.target as HTMLElement;
+      const tileIndex = parseInt(tile.dataset.index || '-1', 10);
+      this.applyTool(x, y, tileIndex, e.shiftKey ? 'shift' : '');
       if (this._tool === 'select-box') {
+        this.selectBox.classList.add('hide');
         execute(
           selectTilesInBox(
             this.getTileAtRounded(
               this._selectBoxStart.x,
               this._selectBoxStart.y
             ),
-            this.getTileAtRounded(e.offsetX, e.offsetY),
+            this.getTileAtRounded(x, y),
             e.altKey,
             e.shiftKey
           )
@@ -240,9 +318,11 @@ export class TilesetViewer extends LitElement {
         editorState.currentTool === 'highlight-color' &&
         performance.now() - this._lastRenderTime > 250
       ) {
-        this.renderTileset();
+        this._dirty = true;
       }
     }, 50);
+
+    requestAnimationFrame(() => this.renderTileset());
   }
 
   private setEyeDropper(x: number, y: number) {
@@ -281,7 +361,7 @@ export class TilesetViewer extends LitElement {
     }
   }
 
-  private applyTool(x: number, y: number, modifier: string) {
+  private applyTool(x: number, y: number, tileIndex: number, modifier: string) {
     if (editorState.currentTool === 'eyedropper') {
       this.setEyeDropper(x, y);
     }
@@ -295,13 +375,11 @@ export class TilesetViewer extends LitElement {
 
       return;
     }
-    const { x: tileX, y: tileY } = this.getTileAt(x, y);
-    const tileIndex = this.getTileIndex(tileX, tileY);
+    const { x: tileX, y: tileY } = tileIndexToCoords(tileIndex, this.tilesWide);
     switch (this._tool) {
       case 'hover':
         if (tileX !== this._hoveredTile.x || tileY !== this._hoveredTile.y) {
           this._hoveredTile = { x: tileX, y: tileY };
-          this.renderTileset();
         }
         break;
       case 'select':
@@ -354,7 +432,7 @@ export class TilesetViewer extends LitElement {
   ) {
     super.update(changedProperties);
     await this.updateImage();
-    this.renderTileset();
+    this._dirty = true;
   }
 
   private async updateImage() {
@@ -369,77 +447,73 @@ export class TilesetViewer extends LitElement {
   }
 
   renderTileset() {
+    requestAnimationFrame(() => this.renderTileset());
+    if (!this._dirty) {
+      return;
+    }
+    // console.log('renderTileset', performance.now() - this._lastRenderTime);
+    this._dirty = false;
     this._lastRenderTime = performance.now();
     const scale = this.intScale;
     if (this.doc.imageCanvas) {
-      const img = this.getProcessedImage();
-      // Set canvas size to match the image size
-      this.canvas.width = img.width * scale;
-      this.canvas.height = img.height * scale;
+      this.canvas.width = this.doc.imageCanvas.width;
+      this.canvas.height = this.doc.imageCanvas.height;
+      this.canvas.style.width = `${this.canvas.width * scale}px`;
+      this.canvas.style.height = `${this.canvas.height * scale}px`;
+      this.overlay.style.gridTemplateColumns = `repeat(${this.tilesWide}, 1fr)`;
+      const tilesHigh = Math.ceil(this.doc.imageCanvas.height / TILE_SIZE);
+      this.overlay.style.gridTemplateRows = `repeat(${tilesHigh}, 1fr)`;
+      this.overlay.style.width = `${this.tilesWide * scale * TILE_SIZE}px`;
+      this.overlay.style.height = `${tilesHigh * scale * TILE_SIZE}px`;
+      this.overlay.style.fontSize = `${scale * 6}px`;
       const ctx = this.canvas.getContext('2d')!;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, 0, 0, img.width * scale, img.height * scale);
-      if (editorState.viewOptions.showGrid) {
-        // Draw a grid every 8x8 of pixels in the image using the inverse of the pixel color under
-        ctx.fillStyle = '#aaa';
-        ctx.globalCompositeOperation = 'difference';
-        for (let x = 0; x < img.width; x += TILE_SIZE) {
-          for (let y = 0; y < img.height; y += TILE_SIZE) {
-            ctx.fillRect(x * scale, y * scale, TILE_SIZE * scale, 1);
-            ctx.fillRect(x * scale, y * scale, 1, TILE_SIZE * scale);
-          }
-        }
-        ctx.globalCompositeOperation = 'source-over';
-      }
-      // Draw a border around the hovered tile
-      if (this._hoveredTile.x >= 0 && this._hoveredTile.y >= 0) {
-        ctx.strokeStyle = '#ff0';
-        ctx.lineWidth = Math.max(1, Math.floor(scale / 2));
-        ctx.strokeRect(
-          this._hoveredTile.x * TILE_SIZE * scale,
-          this._hoveredTile.y * TILE_SIZE * scale,
-          TILE_SIZE * scale,
-          TILE_SIZE * scale
-        );
-      }
-      // Highlight the selected tiles
-      const fillHighlight = editorState.currentTool !== 'merge-colors';
-      this.doc.tiles
-        .filter(t => t.selected)
-        .forEach(t => {
-          const { x, y } = this.getTilePixelCoords(t.tileIndex);
-          ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-          ctx.strokeStyle = '#fff';
-          if (fillHighlight) {
-            ctx.fillRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
-          }
-          ctx.strokeRect(x, y, TILE_SIZE * scale, TILE_SIZE * scale);
-        });
-      // Display the palette indexes of the tiles
+      const blink = Math.floor(performance.now() / 500) % 2 === 0;
+      const { currentTool } = editorState;
+      let selectedColors: number[] = [];
       if (
-        editorState.viewOptions.showPaletteNumbers &&
-        editorState.currentTool !== 'merge-colors'
+        (currentTool === 'highlight-color' && blink) ||
+        currentTool === 'merge-colors'
       ) {
-        this.doc.tiles
-          .filter(t => t.paletteIndex != null)
-          .forEach(t => {
-            const { x, y } = this.getTilePixelCoords(t.tileIndex);
-            ctx.fillStyle = '#fff';
-            ctx.globalCompositeOperation = 'difference';
-            ctx.font = `${6 * scale}px monospace`;
-            ctx.textAlign = 'center';
-            const text = t.paletteIndex!.toString();
-            const textMetrics = ctx.measureText(text);
-            ctx.fillText(
-              text,
-              x + (TILE_SIZE * scale) / 2,
-              y +
-                (TILE_SIZE * scale) / 2 +
-                textMetrics.actualBoundingBoxAscent / 2
-            );
-            ctx.globalCompositeOperation = 'source-over';
-          });
+        selectedColors = editorState.selectedColors;
       }
+      let targetColors: number[] = [];
+      if (currentTool === 'highlight-color') {
+        targetColors = selectedColors.map(invertColor);
+      } else if (currentTool === 'merge-colors') {
+        targetColors = selectedColors.map(() => editorState.replacementColor!);
+      }
+      const imgWidth = this.doc.imageCanvas.width;
+      const imgHeight = this.doc.imageCanvas.height;
+      // Duplicate tilesetState.imageData so we don't modify the original
+      const imageData = new ImageData(
+        this.doc.imageData.data.slice(0),
+        imgWidth,
+        imgHeight
+      );
+      const { data } = imageData;
+      for (let i = 0; i < data.length / 4; i++) {
+        const x = Math.floor((i % imgWidth) / TILE_SIZE);
+        const y = Math.floor(i / imgWidth / TILE_SIZE);
+        const tileIndex = this.getTileIndex(x, y);
+        const tile = this.doc.tiles[tileIndex];
+        const color = rgbToColor(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
+        const colorIndex =
+          tile && tile.paletteIndex === editorState.selectedPaletteIndex
+            ? selectedColors.indexOf(color)
+            : -1;
+        if (colorIndex >= 0) {
+          const [r2, g2, b2] = colorToRgb(targetColors[colorIndex]);
+          data[i * 4] = r2;
+          data[i * 4 + 1] = g2;
+          data[i * 4 + 2] = b2;
+        } else if (
+          this.doc.transparencyColor &&
+          this.doc.transparencyColor === color
+        ) {
+          data[i * 4 + 3] = 0;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
     }
   }
 
@@ -449,10 +523,13 @@ export class TilesetViewer extends LitElement {
     const maxX = Math.max(this._selectBoxStart.x, x);
     const maxY = Math.max(this._selectBoxStart.y, y);
 
+    console.log(minX, minY, maxX, maxY);
+
     this.selectBox.style.left = `${minX}px`;
     this.selectBox.style.top = `${minY}px`;
     this.selectBox.style.width = `${maxX - minX}px`;
     this.selectBox.style.height = `${maxY - minY}px`;
+    this.selectBox.classList.remove('hide');
   }
 
   private updateEyeDropper(color: number, centerX = 0, centerY = 0) {
@@ -504,65 +581,6 @@ export class TilesetViewer extends LitElement {
       2 * Math.PI
     );
     ctx.fill();
-  }
-
-  private _processedCanvasCtx?: CanvasRenderingContext2D;
-
-  private getProcessedImage() {
-    if (!this._processedCanvasCtx) {
-      const canvas = document.createElement('canvas');
-      canvas.width = this.doc.imageCanvas.width;
-      canvas.height = this.doc.imageCanvas.height;
-      this._processedCanvasCtx = canvas.getContext('2d')!;
-    }
-    const blink = Math.floor(performance.now() / 500) % 2 === 0;
-    const { currentTool } = editorState;
-    let selectedColors: number[] = [];
-    if (
-      (currentTool === 'highlight-color' && blink) ||
-      currentTool === 'merge-colors'
-    ) {
-      selectedColors = editorState.selectedColors;
-    }
-    let targetColors: number[] = [];
-    if (currentTool === 'highlight-color') {
-      targetColors = selectedColors.map(invertColor);
-    } else if (currentTool === 'merge-colors') {
-      targetColors = selectedColors.map(() => editorState.replacementColor!);
-    }
-    const imgWidth = this.doc.imageCanvas.width;
-    const imgHeight = this.doc.imageCanvas.height;
-    // Duplicate tilesetState.imageData so we don't modify the original
-    const imageData = new ImageData(
-      this.doc.imageData.data.slice(0),
-      imgWidth,
-      imgHeight
-    );
-    const { data } = imageData;
-    for (let i = 0; i < data.length / 4; i++) {
-      const x = Math.floor((i % imgWidth) / TILE_SIZE);
-      const y = Math.floor(i / imgWidth / TILE_SIZE);
-      const tileIndex = this.getTileIndex(x, y);
-      const tile = this.doc.tiles[tileIndex];
-      const color = rgbToColor(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
-      const colorIndex =
-        tile && tile.paletteIndex === editorState.selectedPaletteIndex
-          ? selectedColors.indexOf(color)
-          : -1;
-      if (colorIndex >= 0) {
-        const [r2, g2, b2] = colorToRgb(targetColors[colorIndex]);
-        data[i * 4] = r2;
-        data[i * 4 + 1] = g2;
-        data[i * 4 + 2] = b2;
-      } else if (
-        this.doc.transparencyColor &&
-        this.doc.transparencyColor === color
-      ) {
-        data[i * 4 + 3] = 0;
-      }
-    }
-    this._processedCanvasCtx.putImageData(imageData, 0, 0);
-    return this._processedCanvasCtx.canvas;
   }
 
   private get doc() {
