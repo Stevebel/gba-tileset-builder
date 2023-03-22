@@ -129,6 +129,7 @@ export function deletePalette(paletteIndex: number): Command<TilesetDocument> {
           }
           return p;
         });
+      console.log(doc.palettes);
     },
     undo: doc => {
       const idx = paletteIndex - doc.paletteIndexOffset;

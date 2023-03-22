@@ -60,12 +60,12 @@ class EditorState extends State {
     }
   }
 
-  public setCurrentDocument(document: TilesetDocument) {
-    this.currentDocument = document;
+  public setCurrentDocument(doc: TilesetDocument) {
+    this.currentDocument = doc;
   }
 
   public open(imageDataURL: string) {
-    this.currentDocument = new TilesetDocument(imageDataURL);
+    this.setCurrentDocument(new TilesetDocument(imageDataURL));
     this.openDocuments.push(this.currentDocument);
   }
 
