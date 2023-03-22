@@ -1,4 +1,3 @@
-import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import '../color-picker.js';
@@ -18,6 +17,7 @@ import {
 } from '../common/constants.js';
 import { TilesetPalette } from '../common/tileset.interface.js';
 import { editorState, execute } from '../state/editor-state.js';
+import { TilesetDocumentStateController } from '../state/tileset-document-state-controller.js';
 import './palette-editor.js';
 
 @customElement('palette-panel')
@@ -51,9 +51,7 @@ export class MenuBar extends LitElement {
     `,
   ];
 
-  ctrl = new StateController(this, editorState);
-
-  ctrl2 = new StateController(this, editorState.currentDocument);
+  ctrl = new TilesetDocumentStateController(this);
 
   tilesWithNoPaletteSelected() {
     return (
