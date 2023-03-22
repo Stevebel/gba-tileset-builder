@@ -3,7 +3,7 @@
   "description": "A tool to help creating tilesets for GBA Pokemon games",
   "license": "MIT",
   "author": "gba-tileset-builder",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "scripts": {
     "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",

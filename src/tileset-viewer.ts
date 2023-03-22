@@ -1,4 +1,3 @@
-import { StateController } from '@lit-app/state';
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { setTransparencyColor } from './commands/palettes.commands.js';
@@ -18,6 +17,7 @@ import {
   TILE_SIZE,
 } from './common/constants.js';
 import { editorState, execute } from './state/editor-state.js';
+import { TilesetDocumentStateController } from './state/tileset-document-state-controller.js';
 
 @customElement('tileset-viewer')
 export class TilesetViewer extends LitElement {
@@ -101,9 +101,7 @@ export class TilesetViewer extends LitElement {
     }
   `;
 
-  ctrl = new StateController(this, editorState);
-
-  ctrl2 = new StateController(this, editorState.currentDocument);
+  ctrl = new TilesetDocumentStateController(this);
 
   @property()
   backgroundColor = '#aaa';
