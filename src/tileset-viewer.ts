@@ -69,17 +69,30 @@ export class TilesetViewer extends LitElement {
       display: grid;
     }
     .overlay-tile {
-      border: 1px solid #999;
       mix-blend-mode: difference;
       display: flex;
       justify-content: center;
       align-items: center;
     }
     .overlay-tile:hover {
-      border: 3px solid #ff0;
+      outline: 3px solid #ff0;
+      outline-offset: -3px;
     }
     .overlay-tile.selected {
       background: rgba(255, 255, 0, 0.8);
+    }
+    #overlay.grid .overlay-tile {
+      outline: 1px solid #999;
+      outline-offset: -1px;
+    }
+    #overlay.merging {
+      opacity: 0.5;
+    }
+    #overlay.merging .overlay-tile.selected {
+      background: none;
+    }
+    #overlay.merging .overlay-tile .palette-index {
+      display: none;
     }
     .palette-index {
       font-weight: bold;
@@ -177,14 +190,20 @@ export class TilesetViewer extends LitElement {
       <div class="tileset-viewer">
         <div class="canvas-container">
           <canvas id="tileset-canvas"></canvas>
-          <div id="overlay">
+          <div
+            id="overlay"
+            class="${editorState.currentTool === 'merge-colors'
+              ? 'merging'
+              : ''} ${editorState.viewOptions.showGrid ? 'grid' : ''}"
+          >
             ${this.doc?.tiles.map(
               (tile, i) => html`
                 <div
                   class="overlay-tile ${tile.selected ? 'selected' : ''}"
                   data-index="${i}"
                 >
-                  ${tile.paletteIndex != null
+                  ${editorState.viewOptions.showPaletteNumbers &&
+                  tile.paletteIndex != null
                     ? html`
                         <span class="palette-index">${tile.paletteIndex}</span>
                       `
@@ -257,6 +276,7 @@ export class TilesetViewer extends LitElement {
     });
     // Select a tile
     this.overlay.addEventListener('mousedown', e => {
+      e.preventDefault();
       // Get mouse position relative to the overlay
       const rect = this.overlay.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -522,8 +542,6 @@ export class TilesetViewer extends LitElement {
     const minY = Math.min(this._selectBoxStart.y, y);
     const maxX = Math.max(this._selectBoxStart.x, x);
     const maxY = Math.max(this._selectBoxStart.y, y);
-
-    console.log(minX, minY, maxX, maxY);
 
     this.selectBox.style.left = `${minX}px`;
     this.selectBox.style.top = `${minY}px`;
