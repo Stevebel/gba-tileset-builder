@@ -1,10 +1,7 @@
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { setTransparencyColor } from './commands/palettes.commands.js';
-import {
-  addOrRemoveTileFromSelection,
-  selectTilesInBox,
-} from './commands/tiles.commands.js';
+import { paletteCommands } from './commands/palettes.commands.js';
+import { tileCommands } from './commands/tiles.commands.js';
 import {
   colorToHex,
   colorToRgb,
@@ -17,7 +14,7 @@ import {
   TILE_SIZE,
 } from './common/constants.js';
 import { tileIndexToCoords } from './common/utils.js';
-import { editorState, execute } from './state/editor-state.js';
+import { editorState } from './state/editor-state.js';
 import { TilesetDocumentStateController } from './state/tileset-document-state-controller.js';
 
 @customElement('tileset-viewer')
@@ -74,16 +71,16 @@ export class TilesetViewer extends LitElement {
       justify-content: center;
       align-items: center;
     }
-    .overlay-tile:hover {
+    #overlay.grid .overlay-tile {
+      outline: 1px solid #999;
+      outline-offset: -1px;
+    }
+    #overlay .overlay-tile:hover {
       outline: 3px solid #ff0;
       outline-offset: -3px;
     }
     .overlay-tile.selected {
       background: rgba(255, 255, 0, 0.8);
-    }
-    #overlay.grid .overlay-tile {
-      outline: 1px solid #999;
-      outline-offset: -1px;
     }
     #overlay.merging {
       opacity: 0.5;
@@ -306,16 +303,11 @@ export class TilesetViewer extends LitElement {
       this.applyTool(x, y, tileIndex, e.shiftKey ? 'shift' : '');
       if (this._tool === 'select-box') {
         this.selectBox.classList.add('hide');
-        execute(
-          selectTilesInBox(
-            this.getTileAtRounded(
-              this._selectBoxStart.x,
-              this._selectBoxStart.y
-            ),
-            this.getTileAtRounded(x, y),
-            e.altKey,
-            e.shiftKey
-          )
+        tileCommands.selectTilesInBox(
+          this.getTileAtRounded(this._selectBoxStart.x, this._selectBoxStart.y),
+          this.getTileAtRounded(x, y),
+          e.altKey,
+          e.shiftKey
         );
       }
       if (
@@ -361,7 +353,7 @@ export class TilesetViewer extends LitElement {
       y / this._scale
     );
     if (this._tool === 'select' || this._tool === 'deselect') {
-      execute(setTransparencyColor(colorToHex(editorState.hoverColor)));
+      paletteCommands.setTransparencyColor(colorToHex(editorState.hoverColor));
     }
   }
 
@@ -375,8 +367,10 @@ export class TilesetViewer extends LitElement {
       this._hoveredTile = { x: -1, y: -1 };
       const selectMultiple = modifier === 'shift';
       const deselect = this._tool === 'deselect';
-      execute(
-        addOrRemoveTileFromSelection(tileIndex, selectMultiple, deselect)
+      tileCommands.addOrRemoveTilesFromSelection(
+        tileIndex,
+        selectMultiple,
+        deselect
       );
     }
   }

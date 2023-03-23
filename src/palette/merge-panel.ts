@@ -1,7 +1,7 @@
 import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { mergeColors } from '../commands/image.commands.js';
+import { imageCommands } from '../commands/image.commands.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import {
   colorToHex,
@@ -10,7 +10,7 @@ import {
   mixColors,
 } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
-import { editorState, execute } from '../state/editor-state.js';
+import { editorState } from '../state/editor-state.js';
 
 @customElement('merge-panel')
 export class MergePanel extends LitElement {
@@ -223,13 +223,11 @@ export class MergePanel extends LitElement {
       editorState.selectedPaletteIndex != null &&
       editorState.selectedColors?.length >= 2
     ) {
-      execute(
-        mergeColors(
-          editorState.selectedColors[0],
-          editorState.selectedColors[1],
-          editorState.replacementColor,
-          editorState.selectedPaletteIndex
-        )
+      imageCommands.mergeColors(
+        editorState.selectedColors[0],
+        editorState.selectedColors[1],
+        editorState.replacementColor,
+        editorState.selectedPaletteIndex
       );
       editorState.selectedColors = [];
     }
