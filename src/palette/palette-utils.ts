@@ -46,6 +46,7 @@ export function getUpdatedPaletteBasedOnTiles(
         colorCounts.set(pixel, count + 1);
       });
   });
+  const transparent = editorState.currentDocument.transparencyColor!;
   const tileColorData: ColorData[] = colors
     .map(color => {
       const count = colorCounts.get(color) || 0;
@@ -54,38 +55,23 @@ export function getUpdatedPaletteBasedOnTiles(
         usageCount: count,
       };
     })
-    .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
-  const colorData: (ColorData | null)[] = [];
-  palette.colors?.forEach(color => {
-    const tileColor = tileColorData.find(c => c.color === color.color);
-    if (tileColor) {
-      colorData.push(tileColor);
-      tileColorData.splice(tileColorData.indexOf(tileColor), 1);
-    } else {
-      colorData.push(null);
-    }
+    .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
+    .filter(c => c.color !== transparent);
+  // Move transparent color to the first slot
+  tileColorData.unshift({
+    color: transparent,
+    usageCount: colorCounts.get(transparent) || 0,
   });
-  if (
-    colorData.length === 0 ||
-    colorData[0]?.color !== editorState.currentDocument.transparencyColor!
-  ) {
-    colorData.unshift({
-      color: editorState.currentDocument.transparencyColor!,
-      usageCount: 0,
-    });
+  // Add empty colors if palette is too small
+  while (tileColorData.length < 16) {
+    tileColorData.push(EMPTY_COLOR);
   }
-  colorData.forEach((color, i) => {
-    if (color == null) {
-      colorData[i] = tileColorData.shift() || EMPTY_COLOR;
-    }
-  });
-  while (colorData.length < 16) {
-    colorData.push(tileColorData.shift() || EMPTY_COLOR);
-  }
+  const newColors = tileColorData.slice(0, 16) as ColorData[];
+  const unassignedColors = tileColorData.slice(16) as ColorData[];
 
   return {
     index: palette.index,
-    colors: colorData as ColorData[],
-    unassignedColors: tileColorData,
+    colors: newColors,
+    unassignedColors,
   };
 }
