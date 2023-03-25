@@ -1,6 +1,7 @@
 import { property, State, storage } from '@lit-app/state';
 import { CommandHandlers } from '../commands/command.interface.js';
 import { ToolType } from '../common/constants.js';
+import { ObservableFeed } from '../common/observer-utils.js';
 import { TilesetDocument } from './tileset-document.js';
 
 const DefaultViewOptions = {
@@ -41,6 +42,10 @@ class EditorState extends State {
   @property({ type: Array })
   openDocuments: TilesetDocument[] = [];
 
+  private _currentDocumentChange = new ObservableFeed(this.currentDocument);
+
+  currentDocumentChange = this._currentDocumentChange.observable;
+
   private documentCommandHandlers: CommandHandlers<TilesetDocument>[] = [];
 
   constructor() {
@@ -70,7 +75,7 @@ class EditorState extends State {
     this.documentCommandHandlers.forEach(handlers =>
       doc.history.registerHandlers(handlers)
     );
-    console.log(this.documentCommandHandlers);
+    this._currentDocumentChange.next(doc);
   }
 
   public open(imageDataURL: string) {
@@ -103,7 +108,6 @@ class EditorState extends State {
     commandHandlers: CH
   ) {
     this.documentCommandHandlers.push(commandHandlers);
-    console.log(this.openDocuments, this.currentDocument);
     this.openDocuments.forEach(doc =>
       doc.history.registerHandlers(commandHandlers)
     );

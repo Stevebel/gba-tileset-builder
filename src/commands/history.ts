@@ -1,9 +1,19 @@
+import { ObservableFeed } from '../common/observer-utils.js';
 import {
   Command,
   CommandHandler,
   CommandHandlers,
   ExecutedCommand,
 } from './command.interface';
+
+export type CommandHistoryObject = {
+  stack: ExecutedCommand<any, any, any>[];
+  redoStack: ExecutedCommand<any, any, any>[];
+};
+export type ExecutionInfo = {
+  type: 'execute' | 'undo' | 'redo';
+  description: string;
+};
 
 export class CommandHistory<T> {
   // State
@@ -20,6 +30,11 @@ export class CommandHistory<T> {
 
   // Settings
   private maxHistoryLength = 10000;
+
+  // Output
+  private _stateChange = new ObservableFeed<ExecutionInfo>();
+
+  stateChange = this._stateChange.observable;
 
   constructor(stateObject: T, options?: { maxHistoryLength?: number }) {
     this.stateObject = stateObject;
@@ -63,14 +78,17 @@ export class CommandHistory<T> {
     });
     if (!redoing) {
       this.redoStack = [];
+      this._stateChange.next({
+        type: 'execute',
+        description: handler.description(command.payload),
+      });
+    } else {
+      this._stateChange.next({
+        type: 'redo',
+        description: handler.description(command.payload),
+      });
     }
     this.trimStack();
-    console.log(JSON.stringify(this.stack, null, 2));
-    document.dispatchEvent(
-      new CustomEvent('command-executed', {
-        detail: handler.description(...command.payload),
-      })
-    );
   }
 
   public undo() {
@@ -88,11 +106,10 @@ export class CommandHistory<T> {
         executedCommand.result,
         ...executedCommand.command.payload
       );
-      document.dispatchEvent(
-        new CustomEvent('command-undone', {
-          detail: handler.description(...executedCommand.command.payload),
-        })
-      );
+      this._stateChange.next({
+        type: 'undo',
+        description: handler.description(executedCommand.command.payload),
+      });
     }
   }
 
@@ -132,6 +149,18 @@ export class CommandHistory<T> {
       type: `${commandHandlers.namespace}.${type as string}`,
       payload,
     });
+  }
+
+  public getObjectRepresentation(): CommandHistoryObject {
+    return {
+      stack: this.stack,
+      redoStack: this.redoStack,
+    };
+  }
+
+  public loadObjectRepresentation(object: CommandHistoryObject) {
+    this.stack = object.stack;
+    this.redoStack = object.redoStack;
   }
 
   // Private methods

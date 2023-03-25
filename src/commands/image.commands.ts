@@ -18,7 +18,7 @@ export const imageCommands = editorState.commands({
           targetColor: number,
           paletteIndex: number
         ) => {
-          console.log('mergeColors', color1, color2, targetColor, paletteIndex);
+          // TODO: Instead store the pixel indices of color1 and color2
           const oldImageDataURL = doc.imageDataURL;
           const [r, g, b] = colorToRgb(targetColor);
           const imageCanvas = document.createElement('canvas');
@@ -35,14 +35,6 @@ export const imageCommands = editorState.commands({
               if (tile.paletteIndex === paletteIndex) {
                 const oldColor = rgbToColor(data[i], data[i + 1], data[i + 2]);
                 if (oldColor === color1 || oldColor === color2) {
-                  console.log(
-                    'replacing',
-                    oldColor,
-                    'with',
-                    targetColor,
-                    'at',
-                    pixelNum
-                  );
                   data[i] = r;
                   data[i + 1] = g;
                   data[i + 2] = b;
