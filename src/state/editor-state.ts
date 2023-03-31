@@ -1,6 +1,6 @@
 import { property, State, storage } from '@lit-app/state';
 import { CommandHandlers } from '../commands/command.interface.js';
-import { ToolType } from '../common/constants.js';
+import { ToolType, TOOL_INFO } from '../common/constants.js';
 import { ObservableFeed } from '../common/observer-utils.js';
 import { TilesetDocument } from './tileset-document.js';
 
@@ -45,6 +45,10 @@ class EditorState extends State {
   private _currentDocumentChange = new ObservableFeed(this.currentDocument);
 
   currentDocumentChange = this._currentDocumentChange.observable;
+
+  private _toolChange = new ObservableFeed(this.currentTool);
+
+  toolChange = this._toolChange.observable;
 
   private documentCommandHandlers: CommandHandlers<TilesetDocument>[] = [];
 
@@ -136,6 +140,16 @@ class EditorState extends State {
     } & {
       commandHandlers: CH;
     };
+  }
+
+  selectTool(tool: ToolType) {
+    this.lastTool = this.currentTool;
+    this.currentTool = tool;
+    this._toolChange.next(tool);
+  }
+
+  get currentToolInfo() {
+    return TOOL_INFO[this.currentTool];
   }
 }
 

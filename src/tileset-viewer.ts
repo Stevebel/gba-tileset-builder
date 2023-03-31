@@ -44,11 +44,11 @@ export class TilesetViewer extends LitElement {
       background-image: linear-gradient(
           45deg,
           ${COLOR_ALT_BG} 25%,
-          transparent 25%
+          rgba(0, 0, 0, 0) 25%
         ),
-        linear-gradient(-45deg, ${COLOR_ALT_BG} 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, ${COLOR_ALT_BG} 75%),
-        linear-gradient(-45deg, transparent 75%, ${COLOR_ALT_BG} 75%);
+        linear-gradient(-45deg, ${COLOR_ALT_BG} 25%, rgba(0, 0, 0, 0) 25%),
+        linear-gradient(45deg, rgba(0, 0, 0, 0) 75%, ${COLOR_ALT_BG} 75%),
+        linear-gradient(-45deg, rgba(0, 0, 0, 0) 75%, ${COLOR_ALT_BG} 75%);
       background-size: 20px 20px;
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
@@ -82,13 +82,26 @@ export class TilesetViewer extends LitElement {
     .overlay-tile.selected {
       background: rgba(255, 255, 0, 0.8);
     }
-    #overlay.merging {
+    .overlay-tile.duplicate {
+      background: repeating-linear-gradient(
+        45deg,
+        #ff6f6f,
+        #ff6f6f 15%,
+        transparent 15%,
+        transparent 25%
+      );
+    }
+    #overlay.grid .duplicate-of {
+      outline: 3px solid #0f0;
+      outline-offset: -3px;
+    }
+    #overlay.hide {
       opacity: 0.5;
     }
-    #overlay.merging .overlay-tile.selected {
+    #overlay.hide .overlay-tile.selected {
       background: none;
     }
-    #overlay.merging .overlay-tile .palette-index {
+    #overlay.hide .overlay-tile .palette-index {
       display: none;
     }
     .palette-index {
@@ -124,10 +137,14 @@ export class TilesetViewer extends LitElement {
       animation-timing-function: linear;
       animation-iteration-count: infinite;
       animation-play-state: running;
-      background-image: linear-gradient(to right, #fff 50%, transparent 50%),
-        linear-gradient(to right, #fff 50%, transparent 50%),
-        linear-gradient(to bottom, #fff 50%, transparent 50%),
-        linear-gradient(to bottom, #fff 50%, transparent 50%);
+      background-image: linear-gradient(
+          to right,
+          #fff 50%,
+          rgba(0, 0, 0, 0) 50%
+        ),
+        linear-gradient(to right, #fff 50%, rgba(0, 0, 0, 0) 50%),
+        linear-gradient(to bottom, #fff 50%, rgba(0, 0, 0, 0) 50%),
+        linear-gradient(to bottom, #fff 50%, rgba(0, 0, 0, 0) 50%);
       color: #fff;
     }
     .select-box {
@@ -182,6 +199,9 @@ export class TilesetViewer extends LitElement {
 
   private _selectBoxStart = { x: -1, y: -1 };
 
+  @state()
+  private _duplicateIndex = 597;
+
   render() {
     return html`
       <div class="tileset-viewer">
@@ -189,14 +209,20 @@ export class TilesetViewer extends LitElement {
           <canvas id="tileset-canvas"></canvas>
           <div
             id="overlay"
-            class="${editorState.currentTool === 'merge-colors'
-              ? 'merging'
+            class="${editorState.currentToolInfo.hideOverlay
+              ? 'hide'
               : ''} ${editorState.viewOptions.showGrid ? 'grid' : ''}"
           >
             ${this.doc?.tiles.map(
               (tile, i) => html`
                 <div
-                  class="overlay-tile ${tile.selected ? 'selected' : ''}"
+                  class="overlay-tile ${tile.selected
+                    ? 'selected'
+                    : ''} ${tile.duplicateIndex != null &&
+                  editorState.currentTool === 'find-duplicates'
+                    ? 'duplicate'
+                    : ''}
+                    ${i === this._duplicateIndex ? 'duplicate-of' : ''}"
                   data-index="${i}"
                 >
                   ${editorState.viewOptions.showPaletteNumbers &&
@@ -252,11 +278,19 @@ export class TilesetViewer extends LitElement {
       const rect = this.overlay.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
+
+      const tile = e.target as HTMLElement;
+      const tileIndex = parseInt(tile.dataset.index || '-1', 10);
+      if (editorState.currentTool === 'find-duplicates') {
+        const targetDuplicateIndex =
+          this.doc.tiles[tileIndex].duplicateIndex || -1;
+        if (targetDuplicateIndex !== this._duplicateIndex) {
+          this._duplicateIndex = targetDuplicateIndex;
+        }
+      }
       if (this._tool === 'hover') {
         return;
       }
-      const tile = e.target as HTMLElement;
-      const tileIndex = parseInt(tile.dataset.index || '-1', 10);
       if (editorState.currentTool === 'eyedropper') {
         eyedropper.style.left = `${e.clientX - 60}px`;
         eyedropper.style.top = `${e.clientY - 60}px`;

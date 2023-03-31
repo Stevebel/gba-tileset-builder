@@ -61,7 +61,7 @@ export class ToolMenu extends LitElement {
       const { toolType } = (button as HTMLElement).dataset;
       button.addEventListener('click', () => {
         if (toolType) {
-          editorState.currentTool = toolType as ToolType;
+          editorState.selectTool(toolType as ToolType);
           toolButtons.forEach(b => b.classList.remove('selected'));
           button.classList.add('selected');
         }
@@ -138,6 +138,26 @@ export class ToolMenu extends LitElement {
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
               d="M29,0v5.515c0,2.138-0.833,4.147-2.344,5.658l-7.484,7.484c-0.176,0.176-0.329,0.368-0.467,0.568  c-0.357-1.384-1.041-2.661-2.014-3.744l7.138-7.138C24.584,7.588,25,6.583,25,5.515V0H29z M18,24.343v-2.858  c0-2.138-0.833-4.147-2.344-5.657L8.172,8.342C7.416,7.588,7,6.583,7,5.515V0H3v5.515c0,2.138,0.833,4.147,2.344,5.657l7.484,7.486  C13.584,19.412,14,20.417,14,21.485v2.858l-2.596-2.596l-2.828,2.828L16,32l7.425-7.425l-2.828-2.828L18,24.343z"
+            />
+          </svg>
+        </div>
+        <!-- Remove Duplicates tool -->
+        <div
+          class="tool-button"
+          data-tool-type="find-duplicates"
+          title="Remove Duplicates"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 1920 1920"
+          >
+            <path
+              xmlns="http://www.w3.org/2000/svg"
+              d="M0 1920h1242.353V677.647H0V1920ZM1581.176 338.824v1242.352h-225.882V564.706H338.824V338.824h1242.352ZM903.53 1242.353v112.941H338.824v-112.941h564.705ZM1920.034-.011v1242.353h-225.882V225.872H677.68V-.012h1242.353Z"
+              fill-rule="evenodd"
+              fill="currentColor"
             />
           </svg>
         </div>

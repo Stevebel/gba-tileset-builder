@@ -10,6 +10,7 @@ import {
   mixColors,
 } from '../common/color-utils.js';
 import { COLOR_PRIMARY_BG, COLOR_PRIMARY_FG } from '../common/constants.js';
+import { checkIfColorsAdjecent } from '../common/image-utils.js';
 import { editorState } from '../state/editor-state.js';
 
 @customElement('merge-panel')
@@ -118,6 +119,15 @@ export class MergePanel extends LitElement {
         padding-bottom: 0;
         text-align: center;
       }
+
+      .adjacent-warning {
+        color: #f99292;
+        font-weight: bold;
+        font-style: italic;
+        text-align: center;
+        white-space: normal;
+        margin-bottom: 10px;
+      }
     `,
   ];
 
@@ -134,6 +144,8 @@ export class MergePanel extends LitElement {
 
   @state()
   private _selectedPosition: number | null = null;
+
+  private _colorsAreAdjacent = false;
 
   shouldShow() {
     return editorState.currentTool === 'merge-colors';
@@ -197,7 +209,7 @@ export class MergePanel extends LitElement {
 
   updated(changes: Map<string, any>) {
     if (changes.size === 0) {
-      // Check if swatches changed based on tileset state selected colors
+      // Check if swatches changed based on editor selected colors
       if (editorState.selectedColors?.length >= 2) {
         const swatches = [
           editorState.selectedColors[0],
@@ -209,6 +221,11 @@ export class MergePanel extends LitElement {
         ) {
           this._swatches = swatches;
           this.setGradientPosition(0.5);
+          this._colorsAreAdjacent = checkIfColorsAdjecent(
+            editorState.currentDocument.imageData,
+            swatches[0],
+            swatches[1]
+          );
         }
       } else if (this._swatches[0] || this._swatches[1]) {
         this._swatches = [null, null];
@@ -250,6 +267,13 @@ export class MergePanel extends LitElement {
         <h3 class="title">Merge Colors</h3>
         ${editorState.selectedColors?.length >= 2
           ? html`
+          ${
+            this._colorsAreAdjacent
+              ? html`<div class="adjacent-warning">
+                  Colors being merged are adjacent in some tiles
+                </div>`
+              : ''
+          }
         <div class="color-selector">
           <div class="swatches">
             ${editorState.selectedColors?.map(

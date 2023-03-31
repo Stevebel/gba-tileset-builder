@@ -16,6 +16,7 @@ import {
 } from './common/constants.js';
 import './common/toast-message.js';
 import { downloadCompleteExportZip } from './export-handler.js';
+import { watchForFindDuplicates } from './find-duplicates.js';
 import './menu-bar.js';
 import './palette/merge-panel.js';
 import './palette/palette-panel.js';
@@ -156,5 +157,6 @@ export class GbaTilesetBuilder extends LitElement {
         this._lastActionDescription = execInfo.description;
         this.toastMessage.show();
       });
+    watchForFindDuplicates();
   }
 }
