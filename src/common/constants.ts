@@ -56,6 +56,11 @@ export const TOOL_INFO = {
       'Finds duplicate tiles in the image and highlights them. Hover over a tile to see the first copy of it highlighted.',
     hideOverlay: false,
   },
+  'map-tiles': {
+    name: 'Map Tiles',
+    description: 'Maps tiles from the input image to the output image',
+    hideOverlay: true,
+  },
 } satisfies { [key: string]: ToolInfo };
 
 export type ToolType = keyof typeof TOOL_INFO;

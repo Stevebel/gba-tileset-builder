@@ -21,6 +21,7 @@ import './menu-bar.js';
 import './palette/merge-panel.js';
 import './palette/palette-panel.js';
 import { editorState } from './state/editor-state.js';
+import './tile-mapping/tile-mapping-view.js';
 import './tileset-viewer.js';
 
 @customElement('gba-tileset-builder')
@@ -89,9 +90,13 @@ export class GbaTilesetBuilder extends LitElement {
       <main>
         <palette-panel></palette-panel>
         <merge-panel></merge-panel>
-        <tileset-viewer
-          .tiles="${editorState.currentDocument.tiles}"
-        ></tileset-viewer>
+        ${editorState.currentTool === 'map-tiles'
+          ? html`<tile-mapping-view></tile-mapping-view>`
+          : html`
+              <tileset-viewer
+                .tiles="${editorState.currentDocument.tiles}"
+              ></tileset-viewer>
+            `}
         <toast-message>
           <span slot="icon">
             ${this._lastActionType === 'undo'

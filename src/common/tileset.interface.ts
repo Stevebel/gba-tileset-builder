@@ -15,6 +15,7 @@ export interface TilesetTile {
   paletteIndex?: number;
   selected?: boolean;
   duplicateIndex?: number;
+  outputIndex?: number;
 }
 
 export interface Tileset {
