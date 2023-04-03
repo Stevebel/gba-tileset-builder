@@ -1293,10 +1293,10 @@
     "@web/dev-server-hmr" "^0.1.11"
     picomatch "^2.2.2"
 
-"@open-wc/eslint-config@^9.2.1":
-  version "9.2.2"
-  resolved "https://registry.yarnpkg.com/@open-wc/eslint-config/-/eslint-config-9.2.2.tgz#22a2e91fcd012a2d8a749d8b70b867590e02d343"
-  integrity sha512-Sb7J+U8HWBkP7RErsaQiwMHM9k/7hlcYO2K4eE0KtOATakBIPbOaYUjqe7K14haTArJalAhaZ8TSqoB+6UvUwg==
+"@open-wc/eslint-config@^10.0.0":
+  version "10.0.0"
+  resolved "https://registry.yarnpkg.com/@open-wc/eslint-config/-/eslint-config-10.0.0.tgz#1b72cc025526d4d48029a1b584b1f57e81530dd8"
+  integrity sha512-/TzYPzyVvFaxIE4C0k/NiDS+xHeZvHcUtZBT8xfAQ2g+i8ey3sPo073HVgvJ2LFDZsZytRn+fML+j9xZ0Lexzw==
   dependencies:
     "@babel/eslint-parser" "^7.19.1"
     "@babel/plugin-syntax-import-assertions" "^7.20.0"
@@ -1305,7 +1305,7 @@
     eslint-plugin-import "^2.26.0"
     eslint-plugin-import-exports-imports-resolver "^1.0.1"
     eslint-plugin-lit "^1.8.0"
-    eslint-plugin-lit-a11y "^2.3.0"
+    eslint-plugin-lit-a11y "^2.4.0"
     eslint-plugin-no-only-tests "^3.1.0"
     eslint-plugin-wc "^1.2.0"
 
@@ -2977,6 +2977,11 @@ electron-to-chromium@^1.4.284:
   resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.295.tgz#911d5df67542bf7554336142eb302c5ec90bba66"
   integrity sha512-lEO94zqf1bDA3aepxwnWoHUjA8sZ+2owgcSZjYQy0+uOSEclJX0VieZC+r+wLpSxUHRd6gG32znTWmr+5iGzFw==
 
+emoji-regex@^10.2.1:
+  version "10.2.1"
+  resolved "https://registry.yarnpkg.com/emoji-regex/-/emoji-regex-10.2.1.tgz#a41c330d957191efd3d9dfe6e1e8e1e9ab048b3f"
+  integrity sha512-97g6QgOk8zlDRdgq1WxwgTMgEWGVAQvB5Fdpgc1MkNy56la5SKP9GsMXKDOdqwn90/41a8yPwIGk1Y6WVbeMQA==
+
 emoji-regex@^7.0.1:
   version "7.0.3"
   resolved "https://registry.yarnpkg.com/emoji-regex/-/emoji-regex-7.0.3.tgz#933a04052860c85e83c122479c4748a8e4c72156"
@@ -2987,7 +2992,7 @@ emoji-regex@^8.0.0:
   resolved "https://registry.yarnpkg.com/emoji-regex/-/emoji-regex-8.0.0.tgz#e818fd69ce5ccfcb404594f842963bf53164cc37"
   integrity sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==
 
-emoji-regex@^9.2.0, emoji-regex@^9.2.2:
+emoji-regex@^9.2.2:
   version "9.2.2"
   resolved "https://registry.yarnpkg.com/emoji-regex/-/emoji-regex-9.2.2.tgz#840c8803b0d8047f4ff0cf963176b32d4ef3ed72"
   integrity sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg==
@@ -3225,16 +3230,16 @@ eslint-plugin-import@^2.26.0:
     semver "^6.3.0"
     tsconfig-paths "^3.14.1"
 
-eslint-plugin-lit-a11y@^2.3.0:
-  version "2.3.0"
-  resolved "https://registry.yarnpkg.com/eslint-plugin-lit-a11y/-/eslint-plugin-lit-a11y-2.3.0.tgz#218f97392af0eec2df7601bc31095bd7e06780c3"
-  integrity sha512-k6j7I6hGJmcojFHIotACgnNgggcK4fvYy+uTVrdseenyzp13yacSlaJtvC3k5kEAKoSIVK1fYiKbufYnvEFegQ==
+eslint-plugin-lit-a11y@^2.4.0:
+  version "2.4.0"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-lit-a11y/-/eslint-plugin-lit-a11y-2.4.0.tgz#5f31a0ead04aa2d59276b4211acc9c2e18fe64b0"
+  integrity sha512-5RJJnouGqdKIvljf2RWjHBMalTxG/M8Hh7XJFkfdL6tLN0enuKQomp0YY3fXE8EiwGz+VOk3A91npJXVZJD5hA==
   dependencies:
     aria-query "^5.1.3"
     axe-core "^4.3.3"
     axobject-query "^2.2.0"
     dom5 "^3.0.1"
-    emoji-regex "^9.2.0"
+    emoji-regex "^10.2.1"
     eslint-plugin-lit "^1.6.0"
     eslint-rule-extender "0.0.1"
     language-tags "^1.0.5"
