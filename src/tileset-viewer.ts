@@ -91,7 +91,7 @@ export class TilesetViewer extends LitElement {
         transparent 25%
       );
     }
-    #overlay.grid .duplicate-of {
+    .overlay-tile.duplicate-of {
       outline: 3px solid #0f0;
       outline-offset: -3px;
     }

@@ -127,7 +127,6 @@ export function getSortedPalette(palette: TilesetPalette): TilesetPalette {
       ...(secondIndex === indexNode1 ? [newNode] : []),
       ...colorNodes.slice(secondIndex + 1),
     ];
-    console.log(colorNodes);
   }
   const sortedColors = colorNodes[0].children!.map(node => node.color!);
   const allColors = [

@@ -2,12 +2,13 @@ import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { colorToRgb } from '../common/color-utils.js';
+import { COLOR_ALT_BG, COLOR_PRIMARY_BG } from '../common/constants.js';
 import {
-  COLOR_ALT_BG,
-  COLOR_PRIMARY_BG,
-  TILE_SIZE,
-} from '../common/constants.js';
-import { tileIndexToPixelCoords } from '../common/utils.js';
+  coordsToTileIndex,
+  pixelToTileIndex,
+  tileIndexToCoords,
+  tileIndexToPixelCoords,
+} from '../common/utils.js';
 import { getTilesWithDuplicateInfo } from '../find-duplicates.js';
 import { editorState } from '../state/editor-state.js';
 import { TilesetDocumentStateController } from '../state/tileset-document-state-controller.js';
@@ -20,10 +21,12 @@ import { TilesetDocumentStateController } from '../state/tileset-document-state-
 
 interface MappingTile {
   tileIndex: number;
-  tileImageSrc: string | null;
+  paletteIndex?: number;
   outputIndex?: number;
   isDuplicate: boolean;
   isDragging: boolean;
+  selected: boolean;
+  blank: boolean;
 }
 
 @customElement('tile-mapping-view')
@@ -32,7 +35,13 @@ export class TileMappingView extends LitElement {
 
   private tiles: MappingTile[] = [];
 
-  private outputMapping: number[] = new Array(512);
+  private selectedTiles: MappingTile[] = [];
+
+  private hoveredOutputIndex: number | null = null;
+
+  private inputDirty = true;
+
+  private outputDirty = true;
 
   // Styles
   static styles = css`
@@ -61,8 +70,14 @@ export class TileMappingView extends LitElement {
     #output-tile-container {
       overflow: auto;
       max-height: calc(100vh - 80px);
+      position: relative;
+    }
+    #input-canvas {
+      position: absolute;
+      image-rendering: pixelated;
     }
     #input-tiles {
+      position: relative;
       display: grid;
       grid-template-columns: repeat(var(--tiles-wide), 1fr);
     }
@@ -70,24 +85,34 @@ export class TileMappingView extends LitElement {
       flex-shrink: 0;
     }
     #output-tiles {
+      position: relative;
       display: grid;
       grid-template-columns: repeat(16, 1fr);
     }
+    #output-canvas {
+      position: absolute;
+      image-rendering: pixelated;
+      width: 384px;
+      height: 768px;
+    }
     .tile {
+      box-sizing: border-box;
       width: 24px;
       height: 24px;
       cursor: move;
       border: 1px solid black;
     }
-    .tile img {
-      width: 100%;
-      height: 100%;
-      image-rendering: pixelated;
-    }
     .tile.mapped,
     .tile.duplicate {
       cursor: default;
       opacity: 0.25;
+    }
+    .tile.selected {
+      border: 2px solid yellow;
+    }
+    .tile.matches-mapped,
+    .tile.matches-input {
+      border: 2px solid red;
     }
 
     .empty.dragged-over {
@@ -97,19 +122,16 @@ export class TileMappingView extends LitElement {
 
   constructor() {
     super();
-    for (let i = 0; i < 512; i++) {
-      this.outputMapping[i] = -1;
+    while (editorState.currentDocument.tileMapping.length < 512) {
+      editorState.currentDocument.tileMapping.push(-1);
     }
   }
 
   willUpdate(
     changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
   ): void {
-    if (
-      !editorState.currentDocument?.imageData ||
-      changedProperties.size > 0 ||
-      this.tiles.length > 0
-    ) {
+    if (!editorState.currentDocument?.imageData || changedProperties.size > 0) {
+      setTimeout(() => this.requestUpdate(), 100);
       return;
     }
     // Set tiles wide CSS variable
@@ -117,88 +139,204 @@ export class TileMappingView extends LitElement {
       '--tiles-wide',
       (editorState.currentDocument.tilesWide || 16).toString(10)
     );
-    console.log('Loading tiles');
     const tileInfo = getTilesWithDuplicateInfo();
-    const doc = editorState.currentDocument;
-    const transparentColor = colorToRgb(doc.transparencyColor);
-    const newTiles = tileInfo.map(tile => {
-      let tileImageSrc: string | null = null;
-      if (tile.paletteIndex != null) {
-        // Get the tile's portion of the image as a data URL.
-        const canvas = document.createElement('canvas');
-        canvas.width = TILE_SIZE;
-        canvas.height = TILE_SIZE;
-        const ctx = canvas.getContext('2d')!;
-        const { x, y } = tileIndexToPixelCoords(tile.tileIndex, doc.tilesWide);
-        ctx.drawImage(
-          doc.imageCanvas,
-          x,
-          y,
-          TILE_SIZE,
-          TILE_SIZE,
-          0,
-          0,
-          TILE_SIZE,
-          TILE_SIZE
-        );
-        // Set all pixels that match the transparent color to transparent.
-        const imageData = ctx.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
-        const { data } = imageData;
-        let hasNonTransparentPixels = false;
-        for (let i = 0; i < data.length; i += 4) {
-          if (
-            data[i] === transparentColor[0] &&
-            data[i + 1] === transparentColor[1] &&
-            data[i + 2] === transparentColor[2]
-          ) {
-            data[i + 3] = 0;
-          } else {
-            hasNonTransparentPixels = true;
-          }
-        }
-        if (!hasNonTransparentPixels) {
-          tile.duplicateIndex = -1;
-        }
-        ctx.putImageData(imageData, 0, 0);
-        tileImageSrc = canvas.toDataURL();
-      }
 
-      return {
+    let newTiles: MappingTile[] = this.tiles;
+
+    if (this.inputDirty) {
+      newTiles = tileInfo.map((tile, i) => ({
         tileIndex: tile.tileIndex,
-        tileImageSrc,
+        paletteIndex: tile.paletteIndex,
         isDuplicate: tile.duplicateIndex != null,
         isDragging: false,
-      } satisfies MappingTile;
-    });
-    newTiles.sort((a, b) => a.tileIndex - b.tileIndex);
+        selected: this.tiles[i]?.selected,
+        blank: true,
+        outputIndex: editorState.currentDocument.tileMapping.indexOf(
+          tile.tileIndex
+        ),
+      }));
+      newTiles.sort((a, b) => a.tileIndex - b.tileIndex);
+    }
+
     this.tiles.length = 0;
     this.tiles.push(...newTiles);
   }
 
+  private drawInput(newTiles: MappingTile[]) {
+    const doc = editorState.currentDocument;
+
+    if (!doc.imageData) {
+      return;
+    }
+
+    const transparentColor = colorToRgb(doc.transparencyColor);
+
+    const canvas = this.shadowRoot!.getElementById(
+      'input-canvas'
+    ) as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    canvas.width = doc.imageData.width;
+    canvas.height = doc.imageData.height;
+    canvas.style.width = `${doc.imageData.width * 3}px`;
+    canvas.style.height = `${doc.imageData.height * 3}px`;
+    ctx.drawImage(doc.imageCanvas, 0, 0);
+    const imageData = ctx.getImageData(
+      0,
+      0,
+      doc.imageData.width,
+      doc.imageData.height
+    );
+    const { data } = imageData;
+    for (let i = 0; i < data.length; i += 4) {
+      const tileIndex = pixelToTileIndex(i / 4, doc.imageData.width);
+      const tile = newTiles[tileIndex];
+      if (tile.isDuplicate || (tile.outputIndex ?? -1) >= 0) {
+        data[i + 3] = 160;
+      }
+
+      if (
+        tile.paletteIndex == null ||
+        (data[i] === transparentColor[0] &&
+          data[i + 1] === transparentColor[1] &&
+          data[i + 2] === transparentColor[2])
+      ) {
+        data[i + 3] = 0;
+      } else {
+        tile.blank = false;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  private drawOutput(newTiles: MappingTile[]) {
+    const doc = editorState.currentDocument;
+
+    if (!doc.imageData) {
+      return;
+    }
+    const transparentColor = colorToRgb(doc.transparencyColor);
+    const inputData = doc.imageData;
+    const canvas = this.shadowRoot!.getElementById(
+      'output-canvas'
+    ) as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    canvas.width = 128;
+    canvas.height = 256;
+    const imageData = ctx.getImageData(0, 0, 128, 256);
+    const { data } = imageData;
+    const ghostInfo = this.getGhostInfo();
+    for (let i = 0; i < data.length; i += 4) {
+      const pixelNum = i / 4;
+      const outputIndex = pixelToTileIndex(pixelNum, 128);
+      let mapping = editorState.currentDocument.tileMapping[outputIndex];
+      const ghostMapping = ghostInfo?.get(outputIndex)?.tileIndex;
+      if (mapping < 0 && ghostMapping != null) {
+        mapping = ghostMapping;
+      }
+      if (mapping >= 0) {
+        const tile = newTiles[mapping];
+        if (tile?.paletteIndex != null) {
+          const offsetX = pixelNum % 8;
+          const offsetY = Math.floor(pixelNum / 128) % 8;
+          const { x: inputTileX, y: inputTileY } = tileIndexToPixelCoords(
+            mapping,
+            doc.tilesWide
+          );
+          const inputPixelIndex =
+            ((inputTileY + offsetY) * inputData.width +
+              (inputTileX + offsetX)) *
+            4;
+          const [r, g, b] = inputData.data.slice(
+            inputPixelIndex,
+            inputPixelIndex + 3
+          );
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          if (
+            r === transparentColor[0] &&
+            g === transparentColor[1] &&
+            b === transparentColor[2]
+          ) {
+            data[i + 3] = 0;
+          } else if (ghostMapping != null) {
+            data[i + 3] = 160;
+          } else {
+            data[i + 3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  private getGhostInfo() {
+    if (
+      this.selectedTiles?.length > 0 &&
+      (this.hoveredOutputIndex ?? -1) >= 0
+    ) {
+      const doc = editorState.currentDocument;
+      this.selectedTiles.sort((a, b) => a.tileIndex - b.tileIndex);
+      const firstTile = this.selectedTiles[0];
+      const { x: inStartX, y: inStartY } = tileIndexToCoords(
+        firstTile.tileIndex,
+        doc.tilesWide
+      );
+      const { x: outStartX, y: outStartY } = tileIndexToCoords(
+        this.hoveredOutputIndex!,
+        16
+      );
+      const [offsetX, offsetY] = [outStartX - inStartX, outStartY - inStartY];
+
+      const ghostInfo: Map<number, MappingTile> = new Map();
+      for (const tile of this.selectedTiles) {
+        const { x: inX, y: inY } = tileIndexToCoords(
+          tile.tileIndex,
+          doc.tilesWide
+        );
+        if (inX + offsetX >= 16 || inY + offsetY >= 32) {
+          return null;
+        }
+        const outIndex = coordsToTileIndex(inX + offsetX, inY + offsetY, 16);
+        if (doc.tileMapping[outIndex] >= 0) {
+          return null;
+        }
+        ghostInfo.set(outIndex, tile);
+      }
+      return ghostInfo;
+    }
+    return null;
+  }
+
   protected updated(): void {
+    if (this.inputDirty) {
+      this.drawInput(this.tiles);
+    }
+    if (this.outputDirty) {
+      this.drawOutput(this.tiles);
+    }
+
     const inputTiles = this.shadowRoot!.querySelectorAll('#input-tiles .tile');
     inputTiles.forEach(tile => {
-      tile.removeEventListener('dragstart', this.handleInputDragStart);
-      tile.removeEventListener('dragend', this.handleInputDragEnd);
-
-      tile.addEventListener('dragstart', this.handleInputDragStart);
-      tile.addEventListener('dragend', this.handleInputDragEnd);
+      tile.addEventListener('dragstart', this.handleDragStart);
+      tile.addEventListener('dragend', this.handleDragEnd);
+      tile.addEventListener('click', this.selectTile);
+      tile.addEventListener('mouseenter', this.handleMouseEnterInputTile);
     });
     const outputTiles = this.shadowRoot!.querySelectorAll(
       '#output-tiles .tile'
     );
     outputTiles.forEach(tile => {
-      tile.removeEventListener('dragover', this.handleDragOver);
-      tile.removeEventListener('drop', this.handleDrop);
-
       tile.addEventListener('dragover', this.handleDragOver);
       tile.addEventListener('drop', this.handleDrop);
-      tile.addEventListener('dragstart', this.handleInputDragStart);
-      tile.addEventListener('dragend', this.handleInputDragEnd);
+      tile.addEventListener('dragstart', this.handleDragStart);
+      tile.addEventListener('dragend', this.handleDragEnd);
+      tile.addEventListener('mouseenter', this.handleMouseEnterSlot);
+      tile.addEventListener('click', this.stampSelected);
     });
   }
 
-  private handleInputDragStart = (ev: Event) => {
+  private handleDragStart = (ev: Event) => {
     const e = ev as DragEvent;
     const tile = e.currentTarget as HTMLElement;
     const tileIndex = parseInt(tile.dataset.tileIndex!, 10);
@@ -213,13 +351,36 @@ export class TileMappingView extends LitElement {
     e.dataTransfer!.setData('text/plain', tileIndex.toString(10));
   };
 
-  private handleInputDragEnd = (ev: Event) => {
+  private handleDragEnd = (ev: Event) => {
     const e = ev as DragEvent;
     const tile = e.currentTarget as HTMLElement;
     const tileIndex = parseInt(tile.dataset.tileIndex!, 10);
     const mappingTile = this.tiles[tileIndex];
     mappingTile.isDragging = false;
     tile.classList.remove('dragging');
+  };
+
+  private selectTile = (ev: Event) => {
+    const e = ev as MouseEvent;
+    const tile = e.currentTarget as HTMLElement;
+    const tileIndex = parseInt(tile.dataset.tileIndex!, 10);
+    const { outputIndex } = tile.dataset;
+    const tileInfo = this.tiles[tileIndex];
+    if (
+      tileInfo &&
+      !tileInfo.blank &&
+      !tileInfo.isDuplicate &&
+      (outputIndex || (tileInfo.outputIndex ?? -1) === -1) &&
+      tileInfo.paletteIndex != null
+    ) {
+      tileInfo.selected = !tileInfo.selected;
+      if (tileInfo.selected) {
+        this.selectedTiles.push(tileInfo);
+      } else {
+        this.selectedTiles.splice(this.selectedTiles.indexOf(tileInfo), 1);
+      }
+      this.requestUpdate();
+    }
   };
 
   private handleDragOver = (ev: Event) => {
@@ -247,16 +408,93 @@ export class TileMappingView extends LitElement {
       const outputIndex = parseInt(slot.dataset.outputIndex!, 10);
       const tileIndex = parseInt(e.dataTransfer!.getData('text/plain'), 10);
       const mappingTile = this.tiles[tileIndex];
+
+      if ((mappingTile.outputIndex ?? -1) >= 0) {
+        this.inputDirty = true;
+      }
+      this.outputDirty = true;
+
       mappingTile.outputIndex = outputIndex;
-      this.outputMapping = this.outputMapping.map((currTileIndex, i) => {
-        if (i === outputIndex) {
-          return tileIndex;
-        }
-        if (currTileIndex === tileIndex) {
-          return -1;
-        }
-        return currTileIndex;
+      editorState.currentDocument.tileMapping =
+        editorState.currentDocument.tileMapping.map((currTileIndex, i) => {
+          if (i === outputIndex) {
+            return tileIndex;
+          }
+          if (currTileIndex === tileIndex) {
+            return -1;
+          }
+          return currTileIndex;
+        });
+      this.requestUpdate();
+    }
+  };
+
+  private handleMouseEnterSlot = (ev: Event) => {
+    const e = ev as MouseEvent;
+    const slot = e.currentTarget as HTMLElement;
+    const tileIndex = slot.dataset.tileIndex
+      ? parseInt(slot.dataset.tileIndex, 10)
+      : null;
+    const matchedTile = this.shadowRoot!.querySelector(
+      `#input-tiles .tile.matches-mapped`
+    );
+    if (matchedTile) {
+      matchedTile.classList.remove('matches-mapped');
+    }
+    if (tileIndex) {
+      this.hoveredOutputIndex = -1;
+      const inputTile = this.shadowRoot!.querySelector(
+        `#input-tiles .tile[data-tile-index="${tileIndex}"]`
+      );
+      inputTile!.classList.add('matches-mapped');
+    }
+    const outputIndex = parseInt(slot.dataset.outputIndex!, 10);
+    if (!Number.isNaN(outputIndex) && this.hoveredOutputIndex !== outputIndex) {
+      this.hoveredOutputIndex = outputIndex;
+      if (this.selectedTiles.length > 0) {
+        this.outputDirty = true;
+        this.requestUpdate();
+      }
+    }
+  };
+
+  private handleMouseEnterInputTile = (ev: Event) => {
+    const e = ev as MouseEvent;
+    const tile = e.currentTarget as HTMLElement;
+    let tileIndex = parseInt(tile.dataset.tileIndex!, 10);
+    const { duplicateIndex } = editorState.currentDocument.tiles[tileIndex];
+    if (duplicateIndex != null) {
+      tileIndex = duplicateIndex;
+    }
+    const { outputIndex } = this.tiles[tileIndex];
+    const matchedSlot = this.shadowRoot!.querySelector(
+      `#output-tiles .tile.matches-input`
+    );
+    if (matchedSlot) {
+      matchedSlot.classList.remove('matches-input');
+    }
+    if ((outputIndex ?? -1) >= 0) {
+      this.hoveredOutputIndex = -1;
+      const outputSlot = this.shadowRoot!.querySelector(
+        `#output-tiles .tile[data-output-index="${outputIndex}"]`
+      );
+      outputSlot!.classList.add('matches-input');
+    }
+  };
+
+  private stampSelected = () => {
+    const ghostInfo = this.getGhostInfo();
+    if (ghostInfo) {
+      const doc = editorState.currentDocument;
+      ghostInfo.forEach((tile, outputIndex) => {
+        const { tileIndex } = tile;
+        const mappingTile = this.tiles[tileIndex];
+        mappingTile.outputIndex = outputIndex;
+        mappingTile.selected = false;
+        doc.tileMapping[outputIndex] = tileIndex;
       });
+      this.selectedTiles = [];
+      this.outputDirty = true;
       this.requestUpdate();
     }
   };
@@ -265,44 +503,33 @@ export class TileMappingView extends LitElement {
     return html`
       <div id="tile-mapping-view">
         <div id="input-tile-container">
+          <canvas id="input-canvas"></canvas>
           <div id="input-tiles">
             ${this.tiles.map(
               tile => html` <div
                 class="tile ${tile.isDuplicate
                   ? 'duplicate'
-                  : ''} ${tile.outputIndex != null ? 'mapped' : ''}"
+                  : ''} ${tile.selected ? 'selected' : ''}"
                 draggable="true"
                 data-tile-index="${tile.tileIndex}"
-              >
-                ${tile.tileImageSrc
-                  ? html`
-                      <img
-                        src="${tile.tileImageSrc}"
-                        alt="Tile ${tile.tileIndex}"
-                      />
-                    `
-                  : ''}
-              </div>`
+              ></div>`
             )}
           </div>
         </div>
         <div id="output-tile-container">
+          <canvas id="output-canvas"></canvas>
           <div id="output-tiles">
-            ${this.outputMapping.map(
+            ${editorState.currentDocument.tileMapping.map(
               (tileIndex, i) => html` <div
-                class="tile ${tileIndex === -1 ? 'empty' : ''}"
+                class="tile ${tileIndex === -1 ? 'empty' : ''} ${tileIndex !==
+                  -1 && this.tiles[tileIndex]?.selected
+                  ? 'selected'
+                  : ''}"
                 data-output-index="${i}"
                 data-tile-index="${tileIndex}"
                 draggable="${tileIndex !== -1}"
                 dropzone="${ifDefined(tileIndex === -1 ? 'move' : undefined)}"
-              >
-                ${tileIndex !== -1 && this.tiles[tileIndex].tileImageSrc
-                  ? html`<img
-                      src="${this.tiles[tileIndex].tileImageSrc!}"
-                      alt="Tile ${tileIndex}"
-                    />`
-                  : ''}
-              </div>`
+              ></div>`
             )}
           </div>
         </div>

@@ -33,12 +33,19 @@ export function getTilesWithDuplicateInfo() {
     return flipped;
   }
 
+  const transparentHash = getHashForPixels(
+    new Array(TILE_SIZE * TILE_SIZE).fill(0)
+  );
+
   tiles.forEach(tile => {
     if (tile.paletteIndex == null) {
       return;
     }
     const pixels = getIndexedTilePixels(tile);
     const hash = getHashForPixels(pixels);
+    if (hash === transparentHash) {
+      return;
+    }
     const existingTile = uniqueTiles.get(hash)!;
     if (existingTile) {
       tile.duplicateIndex = existingTile.tileIndex;
