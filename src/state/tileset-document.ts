@@ -48,6 +48,10 @@ export class TilesetDocument extends State implements Tileset {
   @property({ type: Object })
   historyState?: CommandHistoryObject;
 
+  @storage({ key: 'tileMappping' })
+  @property({ type: Array })
+  tileMapping!: number[];
+
   private loadingPromise?: Promise<HTMLCanvasElement>;
 
   private loading = false;
@@ -74,6 +78,12 @@ export class TilesetDocument extends State implements Tileset {
     }
     if (this.paletteIndexOffset == null) {
       this.paletteIndexOffset = 0;
+    }
+    if (this.tileMapping == null) {
+      this.tileMapping = [];
+      for (let i = 0; i < 512; i++) {
+        this.tileMapping.push(-1);
+      }
     }
     this.history = new CommandHistory(this);
     if (this.historyState) {

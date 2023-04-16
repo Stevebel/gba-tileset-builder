@@ -1,6 +1,6 @@
-import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { paletteCommands } from '../commands/palettes.commands.js';
 import { tileCommands } from '../commands/tiles.commands.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import {
@@ -16,6 +16,7 @@ import {
 } from '../common/constants.js';
 import { ColorData, TilesetPalette } from '../common/tileset.interface.js';
 import { editorState } from '../state/editor-state.js';
+import { TilesetDocumentStateController } from '../state/tileset-document-state-controller.js';
 
 @customElement('palette-editor')
 export class PaletteEditor extends LitElement {
@@ -119,7 +120,7 @@ export class PaletteEditor extends LitElement {
     `,
   ];
 
-  ctrl = new StateController(this, editorState);
+  ctrl = new TilesetDocumentStateController(this);
 
   @property()
   palette: Partial<TilesetPalette> = {};
@@ -193,6 +194,10 @@ export class PaletteEditor extends LitElement {
         },
       })
     );
+  }
+
+  sortPalette() {
+    paletteCommands.sortPalette(this.palette.index!);
   }
 
   selectByPalette() {
@@ -315,6 +320,7 @@ export class PaletteEditor extends LitElement {
           >
             Remove Tiles
           </button>
+          <button @click=${this.sortPalette} class="btn">Sort</button>
           <button @click=${this.selectByPalette} class="btn">
             Select by Palette
           </button>
