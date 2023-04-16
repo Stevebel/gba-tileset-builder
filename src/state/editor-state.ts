@@ -1,6 +1,7 @@
 import { property, State, storage } from '@lit-app/state';
-import { Command } from '../commands/command.interface.js';
+import { CommandHandlers } from '../commands/command.interface.js';
 import { ToolType } from '../common/constants.js';
+import { ObservableFeed } from '../common/observer-utils.js';
 import { TilesetDocument } from './tileset-document.js';
 
 const DefaultViewOptions = {
@@ -41,6 +42,12 @@ class EditorState extends State {
   @property({ type: Array })
   openDocuments: TilesetDocument[] = [];
 
+  private _currentDocumentChange = new ObservableFeed(this.currentDocument);
+
+  currentDocumentChange = this._currentDocumentChange.observable;
+
+  private documentCommandHandlers: CommandHandlers<TilesetDocument>[] = [];
+
   constructor() {
     super();
     if (!this.currentTool) {
@@ -54,18 +61,26 @@ class EditorState extends State {
     }
     if (!this.openDocuments) {
       this.openDocuments = [];
-      if (this.currentDocument) {
-        this.openDocuments.push(this.currentDocument);
-      }
+    }
+    if (
+      this.currentDocument &&
+      this.openDocuments.indexOf(this.currentDocument) === -1
+    ) {
+      this.openDocuments.push(this.currentDocument);
     }
   }
 
   public setCurrentDocument(doc: TilesetDocument) {
     this.currentDocument = doc;
+    this.documentCommandHandlers.forEach(handlers =>
+      doc.history.registerHandlers(handlers)
+    );
+    this._currentDocumentChange.next(doc);
   }
 
   public open(imageDataURL: string) {
-    this.setCurrentDocument(new TilesetDocument(imageDataURL));
+    const doc = new TilesetDocument(imageDataURL);
+    this.setCurrentDocument(doc);
     this.openDocuments.push(this.currentDocument);
   }
 
@@ -88,10 +103,43 @@ class EditorState extends State {
       this.selectedColors = [color];
     }
   }
+
+  public commands<CH extends CommandHandlers<TilesetDocument>>(
+    commandHandlers: CH
+  ) {
+    this.documentCommandHandlers.push(commandHandlers);
+    this.openDocuments.forEach(doc =>
+      doc.history.registerHandlers(commandHandlers)
+    );
+    // Create an object with the same keys as the handlers, but with a function
+    // that executes the command.
+    return {
+      commandHandlers,
+      ...Object.fromEntries(
+        Object.keys(commandHandlers.handlers).map(type => [
+          type,
+          (...payload: any[]) => {
+            this.currentDocument.history.executeCommand({
+              type: `${commandHandlers.namespace}.${type}`,
+              payload,
+            });
+          },
+        ])
+      ),
+    } as {
+      [TYPE in keyof CH['handlers']]: CH['handlers'][TYPE]['execute'] extends (
+        state: TilesetDocument,
+        ...p: infer P
+      ) => any
+        ? (...payload: P) => void
+        : never;
+    } & {
+      commandHandlers: CH;
+    };
+  }
 }
 
 export const editorState = new EditorState();
 
-export function execute(command: Command<TilesetDocument>) {
-  editorState.history.execute(command);
-}
+export const execute: (typeof TilesetDocument)['prototype']['history']['execute'] =
+  (...args) => editorState.history.execute(...args);

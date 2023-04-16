@@ -1,7 +1,7 @@
 import { StateController } from '@lit-app/state';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { selectTilesByPaletteColors } from '../commands/tiles.commands.js';
+import { tileCommands } from '../commands/tiles.commands.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import {
   colorToHex,
@@ -15,7 +15,7 @@ import {
   COLOR_PRIMARY_HIGHLIGHT_BG,
 } from '../common/constants.js';
 import { ColorData, TilesetPalette } from '../common/tileset.interface.js';
-import { editorState, execute } from '../state/editor-state.js';
+import { editorState } from '../state/editor-state.js';
 
 @customElement('palette-editor')
 export class PaletteEditor extends LitElement {
@@ -196,15 +196,13 @@ export class PaletteEditor extends LitElement {
   }
 
   selectByPalette() {
-    execute(
-      selectTilesByPaletteColors(
-        this.palette.index!,
-        Math.max(
-          0,
-          15 -
-            this.palette.colors!.filter(c => c.usageCount && c.usageCount > 0)
-              .length
-        )
+    tileCommands.selectTilesByPaletteColors(
+      this.palette.index!,
+      Math.max(
+        0,
+        15 -
+          this.palette.colors!.filter(c => c.usageCount && c.usageCount > 0)
+            .length
       )
     );
   }

@@ -8,6 +8,7 @@ import {
 } from 'lit/decorators.js';
 
 import { StateController } from '@lit-app/state';
+import { ExecutionInfo } from './commands/history.js';
 import {
   COLOR_PRIMARY_BG,
   COLOR_PRIMARY_FG,
@@ -28,7 +29,7 @@ export class GbaTilesetBuilder extends LitElement {
   @property() data = { value: 'Hello World' };
 
   @state()
-  private _lastActionType: 'execute' | 'undo' = 'execute';
+  private _lastActionType: ExecutionInfo['type'] = 'execute';
 
   @state()
   private _lastActionDescription = 'No actions yet';
@@ -148,17 +149,12 @@ export class GbaTilesetBuilder extends LitElement {
       }
     });
     // Display toast for command history changes
-    document.addEventListener('command-executed', (e: Event) => {
-      const event = e as CustomEvent;
-      this._lastActionType = 'execute';
-      this._lastActionDescription = event.detail;
-      this.toastMessage.show();
-    });
-    document.addEventListener('command-undone', (e: Event) => {
-      const event = e as CustomEvent;
-      this._lastActionType = 'undo';
-      this._lastActionDescription = event.detail;
-      this.toastMessage.show();
-    });
+    editorState.currentDocumentChange
+      .flatMap(doc => doc.history.stateChange)
+      .subscribe(execInfo => {
+        this._lastActionType = execInfo.type;
+        this._lastActionDescription = execInfo.description;
+        this.toastMessage.show();
+      });
   }
 }

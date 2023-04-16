@@ -1,13 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import '../color-picker.js';
-import {
-  addPalette,
-  addTilesToPalette,
-  deletePalette,
-  removeTilesFromPalette,
-  setTransparencyColor,
-} from '../commands/palettes.commands.js';
+import { paletteCommands } from '../commands/palettes.commands.js';
 import { baseCss, buttonStyles } from '../common/base-css.js';
 import { colorToHex } from '../common/color-utils.js';
 import {
@@ -16,7 +10,7 @@ import {
   COLOR_PRIMARY_HIGHLIGHT,
 } from '../common/constants.js';
 import { TilesetPalette } from '../common/tileset.interface.js';
-import { editorState, execute } from '../state/editor-state.js';
+import { editorState } from '../state/editor-state.js';
 import { TilesetDocumentStateController } from '../state/tileset-document-state-controller.js';
 import './palette-editor.js';
 
@@ -77,28 +71,28 @@ export class MenuBar extends LitElement {
   }
 
   addPalette() {
-    execute(addPalette());
+    paletteCommands.addPalette();
   }
 
   addTilesToPalette(e: CustomEvent) {
     const { paletteIndex } = e.detail;
-    execute(addTilesToPalette(paletteIndex));
+    paletteCommands.addOrRemoveTilesFromPalette(paletteIndex, true);
   }
 
   removeTilesFromPalette(e: CustomEvent) {
     const { paletteIndex } = e.detail;
-    execute(removeTilesFromPalette(paletteIndex));
+    paletteCommands.addOrRemoveTilesFromPalette(paletteIndex, false);
   }
 
   protected firstUpdated() {}
 
   deletePalette(e: CustomEvent) {
     const { paletteIndex } = e.detail;
-    execute(deletePalette(paletteIndex));
+    paletteCommands.deletePalette(paletteIndex);
   }
 
   changeTransparencyColor(e: CustomEvent) {
-    execute(setTransparencyColor(e.detail));
+    paletteCommands.setTransparencyColor(e.detail);
   }
 
   selectEyedropper() {

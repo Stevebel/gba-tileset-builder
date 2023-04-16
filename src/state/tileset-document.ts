@@ -1,5 +1,5 @@
 import { property, State, storage } from '@lit-app/state';
-import { CommandHistory } from '../commands/history.js';
+import { CommandHistory, CommandHistoryObject } from '../commands/history.js';
 import { rgbToColor } from '../common/color-utils.js';
 import { TILE_SIZE } from '../common/constants.js';
 import {
@@ -10,6 +10,8 @@ import {
 import { imageToCanvas } from '../common/utils.js';
 
 export class TilesetDocument extends State implements Tileset {
+  private docNumber = Math.random();
+
   @storage({ key: 'tiles' })
   @property({ type: Array })
   tiles!: TilesetTile[];
@@ -42,6 +44,10 @@ export class TilesetDocument extends State implements Tileset {
   @property({ type: Array })
   history: CommandHistory<this>;
 
+  @storage({ key: 'historyState' })
+  @property({ type: Object })
+  historyState?: CommandHistoryObject;
+
   private loadingPromise?: Promise<HTMLCanvasElement>;
 
   private loading = false;
@@ -70,6 +76,12 @@ export class TilesetDocument extends State implements Tileset {
       this.paletteIndexOffset = 0;
     }
     this.history = new CommandHistory(this);
+    if (this.historyState) {
+      this.history.loadObjectRepresentation(this.historyState);
+    }
+    this.history.stateChange.subscribe(() => {
+      this.historyState = this.history.getObjectRepresentation();
+    });
   }
 
   async updateImageFromDataURL() {
