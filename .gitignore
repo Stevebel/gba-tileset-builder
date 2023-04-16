@@ -19,5 +19,8 @@
 /dist/
 /out-tsc/
 
+# yarn 3
+/.yarn/cache
+
 storybook-static
 custom-elements.json

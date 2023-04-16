@@ -40,6 +40,11 @@ function colorToColorObject(color: number): ColorObject {
   };
 }
 
+export function colorToCoords(color: number): [number, number, number] {
+  const colorObj = colorToColorObject(color);
+  return Jzazbz.from(colorObj);
+}
+
 export function colorDistance(color: number, color2: number) {
   const a = colorToColorObject(color);
   const b = colorToColorObject(color2);

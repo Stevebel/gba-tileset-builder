@@ -61,7 +61,7 @@ export class ToolMenu extends LitElement {
       const { toolType } = (button as HTMLElement).dataset;
       button.addEventListener('click', () => {
         if (toolType) {
-          editorState.currentTool = toolType as ToolType;
+          editorState.selectTool(toolType as ToolType);
           toolButtons.forEach(b => b.classList.remove('selected'));
           button.classList.add('selected');
         }
@@ -138,6 +138,49 @@ export class ToolMenu extends LitElement {
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
               d="M29,0v5.515c0,2.138-0.833,4.147-2.344,5.658l-7.484,7.484c-0.176,0.176-0.329,0.368-0.467,0.568  c-0.357-1.384-1.041-2.661-2.014-3.744l7.138-7.138C24.584,7.588,25,6.583,25,5.515V0H29z M18,24.343v-2.858  c0-2.138-0.833-4.147-2.344-5.657L8.172,8.342C7.416,7.588,7,6.583,7,5.515V0H3v5.515c0,2.138,0.833,4.147,2.344,5.657l7.484,7.486  C13.584,19.412,14,20.417,14,21.485v2.858l-2.596-2.596l-2.828,2.828L16,32l7.425-7.425l-2.828-2.828L18,24.343z"
+            />
+          </svg>
+        </div>
+        <!-- Remove Duplicates tool -->
+        <div
+          class="tool-button"
+          data-tool-type="find-duplicates"
+          title="Remove Duplicates"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 1920 1920"
+          >
+            <path
+              xmlns="http://www.w3.org/2000/svg"
+              d="M0 1920h1242.353V677.647H0V1920ZM1581.176 338.824v1242.352h-225.882V564.706H338.824V338.824h1242.352ZM903.53 1242.353v112.941H338.824v-112.941h564.705ZM1920.034-.011v1242.353h-225.882V225.872H677.68V-.012h1242.353Z"
+              fill-rule="evenodd"
+              fill="currentColor"
+            />
+          </svg>
+        </div>
+        <!-- Map Tiles tool -->
+        <div class="tool-button" data-tool-type="map-tiles" title="Map Tiles">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="1 1 23 23"
+            fill="none"
+          >
+            <path
+              d="M7.62906 3.56969C7.80845 3.47184 7.99906 3.62237 7.99906 3.8267V17.3825C7.99906 17.6058 7.84665 17.7946 7.64926 17.8988C7.64249 17.9024 7.63576 17.906 7.62906 17.9097L5.27906 19.2497C3.63906 20.1897 2.28906 19.4097 2.28906 17.5097V7.77969C2.28906 7.14969 2.73906 6.36969 3.29906 6.04969L7.62906 3.56969Z"
+              fill="currentColor"
+            />
+            <path
+              d="M14.7219 6.1029C14.8922 6.18725 15 6.36089 15 6.55096V19.7041C15 20.0726 14.615 20.3145 14.283 20.1546L10.033 18.107C9.85998 18.0236 9.75 17.8485 9.75 17.6565V4.4462C9.75 4.07534 10.1396 3.83355 10.4719 3.99814L14.7219 6.1029Z"
+              fill="currentColor"
+            />
+            <path
+              d="M22 6.49006V16.2201C22 16.8501 21.55 17.6301 20.99 17.9501L17.4986 19.951C17.1653 20.1421 16.75 19.9014 16.75 19.5172V6.33038C16.75 6.15087 16.8462 5.98513 17.0021 5.89615L19.01 4.75006C20.65 3.81006 22 4.59006 22 6.49006Z"
+              fill="currentColor"
             />
           </svg>
         </div>

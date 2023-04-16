@@ -16,6 +16,7 @@ import {
 import { editorState } from '../state/editor-state.js';
 import { TilesetDocument } from '../state/tileset-document.js';
 import { createHandler } from './command.interface.js';
+import { getSortedPalette } from './sort-palette.js';
 
 const addPalette = createHandler<TilesetDocument>()
   .withExecute(doc => {
@@ -149,5 +150,26 @@ export const paletteCommands = editorState.commands({
         doc.palettes = oldPalettes;
       })
       .withDescription(() => 'Set Transparency Color'),
+    sortPalette: createHandler<TilesetDocument>()
+      .withExecute((doc, paletteIndex: number) => {
+        const idx = paletteIndex - doc.paletteIndexOffset;
+        const oldPalette = doc.palettes[idx];
+        doc.palettes = doc.palettes.map(p => {
+          if (p.index === paletteIndex) {
+            return getSortedPalette(p);
+          }
+          return p;
+        });
+        return oldPalette;
+      })
+      .withUndo((doc, oldPalette) => {
+        const idx = oldPalette.index - doc.paletteIndexOffset;
+        doc.palettes = [
+          ...doc.palettes.slice(0, idx),
+          oldPalette,
+          ...doc.palettes.slice(idx + 1),
+        ];
+      })
+      .withDescription(index => `Sort Palette ${index}`),
   },
 });
