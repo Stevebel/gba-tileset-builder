@@ -102,10 +102,14 @@ export class TileMappingView extends LitElement {
       cursor: move;
       border: 1px solid black;
     }
+    .tile:hover {
+      border: 1px solid white;
+    }
     .tile.mapped,
-    .tile.duplicate {
+    .tile.duplicate,
+    .tile.blank {
       cursor: default;
-      opacity: 0.25;
+      border: 1px solid #666;
     }
     .tile.selected {
       border: 2px solid yellow;
@@ -206,6 +210,17 @@ export class TileMappingView extends LitElement {
       }
     }
     ctx.putImageData(imageData, 0, 0);
+
+    const inputTiles = this.shadowRoot!.querySelectorAll('#input-tiles .tile');
+    inputTiles.forEach(tileEl => {
+      const tileIndex = Number((tileEl as HTMLElement).dataset.tileIndex);
+      const tile = newTiles[tileIndex];
+      if (tile.blank) {
+        tileEl.classList.add('blank');
+      } else {
+        tileEl.classList.remove('blank');
+      }
+    });
   }
 
   private drawOutput(newTiles: MappingTile[]) {
@@ -446,7 +461,7 @@ export class TileMappingView extends LitElement {
       const inputTile = this.shadowRoot!.querySelector(
         `#input-tiles .tile[data-tile-index="${tileIndex}"]`
       );
-      inputTile!.classList.add('matches-mapped');
+      inputTile?.classList.add('matches-mapped');
     }
     const outputIndex = parseInt(slot.dataset.outputIndex!, 10);
     if (!Number.isNaN(outputIndex) && this.hoveredOutputIndex !== outputIndex) {
@@ -486,15 +501,17 @@ export class TileMappingView extends LitElement {
     const ghostInfo = this.getGhostInfo();
     if (ghostInfo) {
       const doc = editorState.currentDocument;
+      const tileMapping = [...doc.tileMapping];
       ghostInfo.forEach((tile, outputIndex) => {
         const { tileIndex } = tile;
         const mappingTile = this.tiles[tileIndex];
         mappingTile.outputIndex = outputIndex;
         mappingTile.selected = false;
-        doc.tileMapping[outputIndex] = tileIndex;
+        tileMapping[outputIndex] = tileIndex;
       });
       this.selectedTiles = [];
       this.outputDirty = true;
+      doc.tileMapping = tileMapping;
       this.requestUpdate();
     }
   };
@@ -509,7 +526,9 @@ export class TileMappingView extends LitElement {
               tile => html` <div
                 class="tile ${tile.isDuplicate
                   ? 'duplicate'
-                  : ''} ${tile.selected ? 'selected' : ''}"
+                  : ''} ${tile.selected
+                  ? 'selected'
+                  : ''} ${(tile.outputIndex ?? -1) >= 0 ? 'mapped' : ''}"
                 draggable="true"
                 data-tile-index="${tile.tileIndex}"
               ></div>`
@@ -521,8 +540,10 @@ export class TileMappingView extends LitElement {
           <div id="output-tiles">
             ${editorState.currentDocument.tileMapping.map(
               (tileIndex, i) => html` <div
-                class="tile ${tileIndex === -1 ? 'empty' : ''} ${tileIndex !==
-                  -1 && this.tiles[tileIndex]?.selected
+                class="tile ${tileIndex === -1
+                  ? 'empty'
+                  : 'mapped'} ${tileIndex !== -1 &&
+                this.tiles[tileIndex]?.selected
                   ? 'selected'
                   : ''}"
                 data-output-index="${i}"
