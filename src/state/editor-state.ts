@@ -1,6 +1,6 @@
 import { property, State, storage } from '@lit-app/state';
 import { CommandHandlers } from '../commands/command.interface.js';
-import { ToolType, TOOL_INFO } from '../common/constants.js';
+import { TOOL_INFO, ToolType } from '../common/constants.js';
 import { ObservableFeed } from '../common/observer-utils.js';
 import { TilesetDocument } from './tileset-document.js';
 
