@@ -29,7 +29,7 @@
     "@custom-elements-manifest/analyzer": "^0.4.17",
     "@open-wc/building-rollup": "^2.0.2",
     "@open-wc/dev-server-hmr": "^0.1.2-next.0",
-    "@open-wc/eslint-config": "^9.2.1",
+    "@open-wc/eslint-config": "^11.0.0",
     "@open-wc/testing": "^3.1.6",
     "@rollup/plugin-babel": "^5.3.0",
     "@rollup/plugin-node-resolve": "^13.0.6",
